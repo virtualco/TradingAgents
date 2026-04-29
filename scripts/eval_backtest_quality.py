@@ -78,7 +78,7 @@ def evaluate_backtest_quality() -> float:
             commission_pct=0.001,
             slippage_pct=0.001,
             max_position_pct=0.50,
-            max_open_positions=2,
+            max_open_positions=3,
             max_hold_days=20,
             min_conviction=0.20,
         )

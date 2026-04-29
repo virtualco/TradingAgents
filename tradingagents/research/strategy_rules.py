@@ -20,9 +20,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
+import math
 import numpy as np
 import pandas as pd
-
 logger = logging.getLogger(__name__)
 
 
@@ -171,7 +171,6 @@ class TechnicalStrategyRules:
 
         gap_pct = (sma20 - sma50) / sma50
         # tanh scaling: 1% gap -> 0.20, 2% gap -> 0.38, 3% gap -> 0.54, 5%+ -> ~0.60
-        import math
         scaled = round(min(0.6, math.tanh(abs(gap_pct) * 20) * 0.6), 3)
         # Golden cross: SMA20 just crossed above SMA50
         if prev_sma20 <= prev_sma50 and sma20 > sma50:
