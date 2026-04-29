@@ -302,7 +302,10 @@ class TechnicalStrategyRules:
 
         band_width = upper_val - lower_val
         position = (price - lower_val) / band_width if band_width > 0 else 0.5
-
+        # Trend-aware Bollinger: detect if price is in an uptrend (5-day slope > 0)
+        trend_slope = (close.iloc[-1] - close.iloc[-5]) / close.iloc[-5] if len(close) >= 5 else 0.0
+        in_uptrend = trend_slope > 0.005   # >0.5% gain over 5 days
+        in_downtrend = trend_slope < -0.005
         if position < 0.1:
             score = 0.7
             rationale = f"Price near lower Bollinger Band ({price:.2f} vs lower {lower_val:.2f})"
@@ -310,11 +313,22 @@ class TechnicalStrategyRules:
             score = 0.3
             rationale = f"Price in lower Bollinger zone (position: {position:.0%})"
         elif position > 0.9:
-            score = -0.7
-            rationale = f"Price near upper Bollinger Band ({price:.2f} vs upper {upper_val:.2f})"
+            if in_uptrend:
+                score = 0.5   # Upper band in uptrend = momentum confirmation
+                rationale = f"Price riding upper Bollinger Band in uptrend ({price:.2f})"
+            else:
+                score = -0.7
+                rationale = f"Price near upper Bollinger Band ({price:.2f} vs upper {upper_val:.2f})"
         elif position > 0.7:
-            score = -0.3
-            rationale = f"Price in upper Bollinger zone (position: {position:.0%})"
+            if in_uptrend:
+                score = 0.2   # Upper zone in uptrend = mild bullish
+                rationale = f"Price in upper Bollinger zone with uptrend (position: {position:.0%})"
+            elif in_downtrend:
+                score = -0.5  # Upper zone in downtrend = bearish divergence
+                rationale = f"Price in upper Bollinger zone despite downtrend (position: {position:.0%})"
+            else:
+                score = -0.3
+                rationale = f"Price in upper Bollinger zone (position: {position:.0%})"
         else:
             score = 0.0
             rationale = f"Price mid-Bollinger Band (position: {position:.0%})"
