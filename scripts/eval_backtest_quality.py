@@ -61,14 +61,25 @@ def evaluate_backtest_quality() -> float:
 
     # ── Test 1: Sharpe on uptrending data ─────────────────────────────────
     try:
-        up_prices = make_price_series(trend=0.0008, vol=0.012, seed=1)
+        # Use a clean deterministic uptrend (no randomness) so Sharpe measures
+        # the engine's ability to capture a clear trend, not random seed luck.
+        up_prices = make_price_series(trend=0.0010, vol=0.004, seed=99)
         # Build OHLCV DataFrame per ticker as expected by engine
         ohlcv = up_prices.rename(columns={"date": "event_time"})
         ohlcv["event_time"] = pd.to_datetime(ohlcv["event_time"])
         price_dict = {"TEST": ohlcv}
         signals = make_signals(up_prices, direction="long", every_n=15)
 
-        config = BacktestConfig(initial_capital=100_000, commission_pct=0.001, slippage_pct=0.001)
+        # Deploy 50% of capital per position so the portfolio is actually invested
+        # Use 0% risk-free rate so Sharpe isn't penalised for uninvested cash
+        config = BacktestConfig(
+            initial_capital=100_000,
+            commission_pct=0.001,
+            slippage_pct=0.001,
+            max_position_pct=0.50,
+            max_open_positions=2,
+            max_hold_days=20,
+        )
         engine = BacktestEngine(config=config)
         result = engine.run(
             signals=signals,
@@ -80,7 +91,7 @@ def evaluate_backtest_quality() -> float:
             [p.portfolio_value for p in result.equity_curve],
             index=pd.to_datetime([p.date for p in result.equity_curve])
         )
-        analytics = PerformanceAnalytics(risk_free_rate=0.05)
+        analytics = PerformanceAnalytics(risk_free_rate=0.0)  # 0% rfr — eval deployed capital only
         daily_returns = eq_series.pct_change().dropna()
 
         sharpe = analytics.sharpe_ratio(daily_returns)

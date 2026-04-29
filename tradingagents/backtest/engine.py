@@ -90,6 +90,7 @@ class BacktestConfig:
     min_conviction: float = 0.30           # Ignore signals below this
     stop_loss_pct: Optional[float] = 0.08  # 8% stop loss (None = disabled)
     take_profit_pct: Optional[float] = 0.20  # 20% take profit (None = disabled)
+    max_hold_days: Optional[int] = 20       # Max holding period in calendar days (None = disabled)
     benchmark_ticker: str = "SPY"
     risk_free_rate: float = 0.05           # 5% annual
 
@@ -463,6 +464,20 @@ class BacktestEngine:
                     to_close.append((ticker, pos.take_profit, "take_profit"))
                 elif pos.stop_loss and high >= pos.stop_loss:
                     to_close.append((ticker, pos.stop_loss, "stop_loss"))
+
+        # Time-based exit: close positions held longer than max_hold_days
+        if self.config.max_hold_days is not None:
+            current_date = pd.to_datetime(date_str).date()
+            already_closing = {t for t, _, _ in to_close}
+            for ticker, pos in list(self.positions.items()):
+                if ticker in already_closing:
+                    continue
+                entry_date = pd.to_datetime(pos.entry_date).date()
+                hold_days = (current_date - entry_date).days
+                if hold_days >= self.config.max_hold_days:
+                    close_price = self._get_close_price(ticker, date_str, price_data)
+                    if close_price:
+                        to_close.append((ticker, close_price, "max_hold_days"))
 
         for ticker, exit_price, reason in to_close:
             self._close_position(ticker, exit_price, date_str, reason)
