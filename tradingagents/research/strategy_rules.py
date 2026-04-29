@@ -278,7 +278,7 @@ class TechnicalStrategyRules:
             role=self.ROLE,
             signal=_score_to_signal(score),
             score=round(score, 3),
-            confidence=0.60,
+            confidence=0.75,  # MACD is a reliable momentum indicator
             rationale=rationale,
             data_points={"macd_histogram": round(hist_now, 4)},
         )
@@ -338,7 +338,7 @@ class TechnicalStrategyRules:
             role=self.ROLE,
             signal=_score_to_signal(score),
             score=round(score, 3),
-            confidence=0.55,
+            confidence=0.65,  # Bollinger is a reliable volatility/trend indicator
             rationale=rationale,
             data_points={"bb_position": round(position, 3), "price": round(price, 2)},
         )
