@@ -68,7 +68,7 @@ def evaluate_backtest_quality() -> float:
         ohlcv = up_prices.rename(columns={"date": "event_time"})
         ohlcv["event_time"] = pd.to_datetime(ohlcv["event_time"])
         price_dict = {"TEST": ohlcv}
-        signals = make_signals(up_prices, direction="long", every_n=5)
+        signals = make_signals(up_prices, direction="long", every_n=3)
 
         # Deploy 50% of capital per position so the portfolio is actually invested
         # Use 0% risk-free rate so Sharpe isn't penalised for uninvested cash
