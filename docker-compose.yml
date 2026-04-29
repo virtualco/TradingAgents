@@ -1,13 +1,49 @@
 services:
+  # --- Core TradingAgents CLI ---
   tradingagents:
     build: .
     env_file:
       - .env
     volumes:
       - tradingagents_data:/home/appuser/.tradingagents
+      - ./data:/data  # Parquet data lake mount
     tty: true
     stdin_open: true
+    depends_on:
+      - postgres
+      - redis
 
+  # --- Postgres (decision log, signal registry, metadata) ---
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tradingagents
+      POSTGRES_USER: ta_user
+      POSTGRES_PASSWORD: ta_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ta_user -d tradingagents"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Redis (LangGraph checkpoint, caching, message bus) ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Ollama (local LLM, optional) ---
   ollama:
     image: ollama/ollama:latest
     volumes:
@@ -32,4 +68,6 @@ services:
 
 volumes:
   tradingagents_data:
+  postgres_data:
+  redis_data:
   ollama_data:

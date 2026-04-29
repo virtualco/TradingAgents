@@ -1,0 +1,4 @@
+# Development dependencies — install with: pip install -r requirements-dev.txt
+pytest>=9.0
+ruff>=0.11
+pyright>=1.1
