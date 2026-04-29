@@ -30,6 +30,17 @@ dependencies = [
     "tqdm>=4.67.1",
     "typing-extensions>=4.14.0",
     "yfinance>=0.2.63",
+    "duckdb>=1.0",
+    "pyarrow>=14.0",
+    "polars>=0.20",
+    "openbb>=4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0",
+    "ruff>=0.11",
+    "pyright>=1.1",
 ]
 
 [project.scripts]
