@@ -59,36 +59,57 @@ DEFAULT_TICKERS = [
 
 # ── Price fetcher ──────────────────────────────────────────────────────────
 
-def fetch_prices(tickers: List[str]) -> Dict[str, float]:
-    """Fetch latest close prices via yfinance (OpenBB fallback)."""
+def fetch_prices(tickers: List[str], max_retries: int = 3) -> Dict[str, float]:
+    """Fetch latest close prices via yfinance with retry logic (OpenBB fallback).
+
+    Retries up to *max_retries* times on transient TLS/network errors before
+    falling through to the OpenBB fallback path.
+    """
+    import time
     prices: Dict[str, float] = {}
-    try:
-        import yfinance as yf
-        data = yf.download(tickers, period="2d", auto_adjust=True, progress=False)
-        if data.empty:
-            raise ValueError("yfinance returned empty data")
-        close = data["Close"] if "Close" in data.columns else data
-        latest = close.iloc[-1]
-        for ticker in tickers:
-            if ticker in latest.index and not pd.isna(latest[ticker]):
-                prices[ticker] = float(latest[ticker])
-        logger.info(f"Fetched prices for {len(prices)}/{len(tickers)} tickers via yfinance")
-    except Exception as e:
-        logger.warning(f"yfinance price fetch failed ({e}), trying OpenBB...")
+    last_exc: Optional[Exception] = None
+    for attempt in range(1, max_retries + 1):
         try:
-            from tradingagents.dataflows.openbb_connector import OpenBBConnector
-            connector = OpenBBConnector()
+            import yfinance as yf
+            data = yf.download(tickers, period="2d", auto_adjust=True, progress=False)
+            if data.empty:
+                raise ValueError("yfinance returned empty data")
+            close = data["Close"] if "Close" in data.columns else data
+            latest = close.iloc[-1]
             for ticker in tickers:
-                try:
-                    df = connector.get_ohlcv(ticker, interval="1d", lookback_days=3)
-                    if df is not None and not df.empty:
-                        prices[ticker] = float(df["close"].iloc[-1])
-                except Exception:
-                    pass
-            logger.info(f"Fetched prices for {len(prices)}/{len(tickers)} tickers via OpenBB")
-        except Exception as e2:
-            logger.error(f"All price fetches failed: {e2}")
+                if ticker in latest.index and not pd.isna(latest[ticker]):
+                    prices[ticker] = float(latest[ticker])
+            logger.info(f"Fetched prices for {len(prices)}/{len(tickers)} tickers via yfinance (attempt {attempt})")
+            break  # success — exit retry loop
+        except Exception as e:
+            last_exc = e
+            if attempt < max_retries:
+                wait = 2 ** attempt  # exponential back-off: 2s, 4s
+                logger.warning(f"yfinance fetch attempt {attempt} failed ({e}); retrying in {wait}s…")
+                time.sleep(wait)
+            else:
+                logger.warning(f"yfinance price fetch failed after {max_retries} attempts ({e}), trying OpenBB...")
+    if not prices:
+        last_exc = last_exc  # keep reference for fallback log
+    if prices:
+        return prices
+    # ── OpenBB fallback ────────────────────────────────────────────────────
+    logger.warning("Falling back to OpenBB after yfinance failure")
+    try:
+        from tradingagents.dataflows.openbb_connector import OpenBBConnector
+        connector = OpenBBConnector()
+        for ticker in tickers:
+            try:
+                df = connector.get_ohlcv(ticker, interval="1d", lookback_days=3)
+                if df is not None and not df.empty:
+                    prices[ticker] = float(df["close"].iloc[-1])
+            except Exception:
+                pass
+        logger.info(f"Fetched prices for {len(prices)}/{len(tickers)} tickers via OpenBB")
+    except Exception as e2:
+        logger.error(f"All price fetches failed: {e2}")
     return prices
+
 
 
 # ── Signal generator ───────────────────────────────────────────────────────
@@ -131,10 +152,11 @@ def generate_signals(tickers: List[str], prices: Dict[str, float], trade_date: s
 
             # Map score to direction + conviction
             # Score range: -1.0 (strong sell) to +1.0 (strong buy)
-            if ensemble_score >= 0.3:
+            # Threshold lowered from 0.3 → 0.2 to generate more actionable signals
+            if ensemble_score >= 0.2:
                 direction = "long"
                 conviction = min(0.95, 0.5 + ensemble_score * 0.5)
-            elif ensemble_score <= -0.3:
+            elif ensemble_score <= -0.2:
                 direction = "short"
                 conviction = min(0.95, 0.5 + abs(ensemble_score) * 0.5)
             else:
