@@ -132,10 +132,15 @@ def evaluate_signal_quality() -> float:
 
     directional_accuracy = (directional_correct / directional_total * 100) if directional_total > 0 else 0.0
 
-    # Coverage: how many signal types are populated
+    # Coverage: how many signal types are populated (rule_signals is the correct attribute)
     try:
         up_summary = rules.compute(make_trending_up(), ticker="COV", trade_date=trade_date)
-        populated_signals = sum(1 for s in up_summary.signals if s is not None) if hasattr(up_summary, "signals") else 2
+        if hasattr(up_summary, "rule_signals") and up_summary.rule_signals:
+            populated_signals = len(up_summary.rule_signals)
+        elif hasattr(up_summary, "signals") and up_summary.signals:
+            populated_signals = sum(1 for s in up_summary.signals if s is not None)
+        else:
+            populated_signals = 2
         coverage_score = min(populated_signals * 25, 100.0)
     except Exception:
         coverage_score = 50.0

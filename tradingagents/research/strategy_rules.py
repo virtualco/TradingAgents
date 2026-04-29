@@ -170,16 +170,19 @@ class TechnicalStrategyRules:
             return None
 
         gap_pct = (sma20 - sma50) / sma50
+        # tanh scaling: 1% gap -> 0.20, 2% gap -> 0.38, 3% gap -> 0.54, 5%+ -> ~0.60
+        import math
+        scaled = round(min(0.6, math.tanh(abs(gap_pct) * 20) * 0.6), 3)
         # Golden cross: SMA20 just crossed above SMA50
         if prev_sma20 <= prev_sma50 and sma20 > sma50:
             score, rationale = 0.8, f"Golden cross: SMA20 ({sma20:.2f}) crossed above SMA50 ({sma50:.2f})"
         elif sma20 > sma50:
-            score = min(0.6, gap_pct * 5)  # Scale by gap size
+            score = scaled
             rationale = f"Bullish: SMA20 ({sma20:.2f}) > SMA50 ({sma50:.2f}), gap {gap_pct:.1%}"
         elif prev_sma20 >= prev_sma50 and sma20 < sma50:
             score, rationale = -0.8, f"Death cross: SMA20 ({sma20:.2f}) crossed below SMA50 ({sma50:.2f})"
         else:
-            score = max(-0.6, gap_pct * 5)
+            score = -scaled
             rationale = f"Bearish: SMA20 ({sma20:.2f}) < SMA50 ({sma50:.2f}), gap {gap_pct:.1%}"
 
         return RuleSignal(
@@ -218,6 +221,14 @@ class TechnicalStrategyRules:
         elif rsi_val > 60:
             score = -0.3
             rationale = f"RSI approaching overbought at {rsi_val:.1f}"
+        elif rsi_val > 50:
+            # Weak bullish momentum: linear 0.0 at 50 → 0.15 at 60
+            score = round((rsi_val - 50) / 10 * 0.15, 3)
+            rationale = f"RSI mild bullish momentum at {rsi_val:.1f}"
+        elif rsi_val < 50:
+            # Weak bearish momentum: linear 0.0 at 50 → -0.15 at 40
+            score = round((rsi_val - 50) / 10 * 0.15, 3)
+            rationale = f"RSI mild bearish momentum at {rsi_val:.1f}"
         else:
             score = 0.0
             rationale = f"RSI neutral at {rsi_val:.1f}"
