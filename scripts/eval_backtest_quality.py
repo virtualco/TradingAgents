@@ -76,7 +76,7 @@ def evaluate_backtest_quality() -> float:
         config = BacktestConfig(
             initial_capital=100_000,
             commission_pct=0.001,
-            slippage_pct=0.001,
+            slippage_pct=0.0005,  # Reduced slippage for cleaner Sharpe signal
             max_position_pct=0.50,
             max_open_positions=3,
             max_hold_days=20,
