@@ -34,6 +34,8 @@ dependencies = [
     "pyarrow>=14.0",
     "polars>=0.20",
     "openbb>=4.0",
+    "cvxpy>=1.4",
+    "scipy>=1.12",
 ]
 
 [project.optional-dependencies]
