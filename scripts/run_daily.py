@@ -215,6 +215,56 @@ def persist_signals(signals: pd.DataFrame, db_path: str, trade_date: str) -> Non
         logger.warning(f"Signal registry persist failed (non-fatal): {e}")
 
 
+# ── Webhook / Slack alert ─────────────────────────────────────────────────
+
+def send_alert(obs, trade_date: str, report_file: Path) -> None:
+    """POST a daily summary to TRADINGAGENTS_WEBHOOK_URL (Slack-compatible).
+
+    Set TRADINGAGENTS_WEBHOOK_URL to a Slack incoming-webhook URL or any
+    HTTP endpoint that accepts a JSON POST body.  If the env var is not set
+    the function is a no-op.
+
+    An URGENT alert is sent (with emoji flag) when the kill switch fires,
+    a circuit breaker triggers, or drawdown exceeds 10%.
+    """
+    webhook_url = os.environ.get("TRADINGAGENTS_WEBHOOK_URL", "")
+    if not webhook_url:
+        return
+
+    urgent = obs.kill_switch_active or obs.circuit_breaker_triggered or obs.drawdown_pct > 0.10
+    icon = ":rotating_light:" if urgent else ":chart_with_upwards_trend:"
+    status_line = ""
+    if obs.kill_switch_active:
+        status_line += "  *KILL SWITCH ACTIVE*\n"
+    if obs.circuit_breaker_triggered:
+        status_line += "  *CIRCUIT BREAKER TRIGGERED*\n"
+
+    text = (
+        f"{icon} *TradingAgents Daily — {trade_date}*\n"
+        f"{status_line}"
+        f"  NAV: `${obs.nav:,.2f}`   Daily P&L: `${obs.daily_pnl:+,.2f}`\n"
+        f"  Total P&L: `${obs.total_pnl:+,.2f}`   Drawdown: `{obs.drawdown_pct*100:.2f}%`\n"
+        f"  Signals: `{obs.signals_received}`   Filled: `{obs.orders_filled}`   "
+        f"Rejected: `{obs.orders_rejected}`\n"
+        f"  Reconciliation: `{'CLEAN' if obs.reconciliation_clean else str(obs.reconciliation_breaks)+' BREAKS'}`\n"
+        f"  Report: `{report_file.name}`"
+    )
+
+    try:
+        import urllib.request
+        payload = json.dumps({"text": text}).encode()
+        req = urllib.request.Request(
+            webhook_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            logger.info(f"Alert sent to webhook (HTTP {resp.status})")
+    except Exception as e:
+        logger.warning(f"Webhook alert failed (non-fatal): {e}")
+
+
 # ── Save daily report ──────────────────────────────────────────────────────
 
 def save_report(obs, report_dir: str, trade_date: str) -> Path:
@@ -347,6 +397,9 @@ def main() -> int:
     # ── Step 4: Save report ────────────────────────────────────────────────
     logger.info("Step 4/4 — Saving daily report...")
     report_file = save_report(obs, report_dir, trade_date)
+
+    # ── Send webhook / Slack alert ──────────────────────────────────────────
+    send_alert(obs, trade_date, report_file)
 
     # ── Print summary ──────────────────────────────────────────────────────
     print("\n" + "=" * 60)
