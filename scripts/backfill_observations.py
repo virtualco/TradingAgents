@@ -163,6 +163,7 @@ def main() -> int:
     config = ObservationConfig(
         db_path=args.db,
         initial_capital=args.capital,
+        max_position_size_pct=0.05,  # 5% max per position — tightened to control drawdown
     )
     observer = DailyObserver(config=config)
 

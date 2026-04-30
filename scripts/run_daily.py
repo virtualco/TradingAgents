@@ -328,11 +328,14 @@ def main() -> int:
 
     # ── Step 3: Run daily observation cycle ───────────────────────────────
     logger.info("Step 3/4 — Running daily observation cycle...")
+    max_pos_pct = float(os.environ.get("TRADINGAGENTS_MAX_POSITION_PCT", "0.05"))
     config = ObservationConfig(
         db_path=db_path,
         initial_capital=capital,
         report_dir=report_dir,
+        max_position_size_pct=max_pos_pct,
     )
+    logger.info(f"  Max position size : {max_pos_pct:.0%} of NAV")
     observer = DailyObserver(config=config)
 
     obs = observer.run_daily_cycle(

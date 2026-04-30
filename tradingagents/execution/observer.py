@@ -40,7 +40,7 @@ class ObservationConfig:
     """Configuration for the live observation loop."""
     db_path: str = "paper_trading.db"
     initial_capital: float = 100_000.0
-    max_position_size_pct: float = 0.10    # Max 10% of NAV per position
+    max_position_size_pct: float = 0.05    # Max 5% of NAV per position (tightened to control drawdown)
     min_conviction: float = 0.50           # Min conviction to trade
     observation_period_days: int = 90      # Minimum observation before live
     report_dir: str = "observation_reports"
