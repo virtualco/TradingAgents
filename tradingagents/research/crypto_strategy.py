@@ -1,6 +1,6 @@
 """
-CryptoDayTradingStrategy — v2 with regime filter and ATR-based sizing
-Multi-indicator confluence: RSI + EMA crossover + MACD + Volume filter + Regime detection + ATR position sizing
+CryptoDayTradingStrategy — v2 with regime filter, ATR-based sizing and improved entry+exit
+Multi-indicator confluence: RSI + EMA crossover + MACD + Volume filter + Regime detection + ATR position sizing + trailing ATR stop loss
 Designed for 1-hour OHLCV data on BTC-USD / ETH-USD.
 No look-ahead bias. No external TA libraries required.
 """
@@ -18,8 +18,8 @@ class CryptoDayTradingStrategy:
     def __init__(
         self,
         rsi_period: int = 14,
-        rsi_oversold: float = 35,
-        rsi_overbought: float = 65,
+        rsi_oversold: float = 30,  # tightened for stronger signals
+        rsi_overbought: float = 70,  # tightened
         ema_fast: int = 9,
         ema_slow: int = 21,
         macd_fast: int = 12,
@@ -29,6 +29,7 @@ class CryptoDayTradingStrategy:
         vol_mult: float = 1.2,
         trend_ema: int = 50,
         atr_period: int = 14,
+        atr_stop_mult: float = 1.5,  # trailing stop multiplier
     ):
         self.rsi_period = rsi_period
         self.rsi_oversold = rsi_oversold
@@ -42,6 +43,7 @@ class CryptoDayTradingStrategy:
         self.vol_mult = vol_mult
         self.trend_ema = trend_ema
         self.atr_period = atr_period
+        self.atr_stop_mult = atr_stop_mult
 
     def _rsi(self, close: pd.Series) -> pd.Series:
         delta = close.diff()
@@ -79,73 +81,129 @@ class CryptoDayTradingStrategy:
         if len(df) < max(self.macd_slow, self.trend_ema, self.atr_period) + 10:
             return pd.Series(0, index=df.index)
 
-        close = df["close"].astype(float)
-        high = df["high"].astype(float)
-        low = df["low"].astype(float)
-        volume = df["volume"].astype(float)
+        close = df['close']
+        high = df['high']
+        low = df['low']
+        volume = df['volume']
 
+        # Indicators
         rsi = self._rsi(close)
-        ema_f = self._ema(close, self.ema_fast)
-        ema_s = self._ema(close, self.ema_slow)
+        ema_fast = self._ema(close, self.ema_fast)
+        ema_slow = self._ema(close, self.ema_slow)
         trend_ema = self._ema(close, self.trend_ema)
-        _, _, macd_hist = self._macd(close)
+        macd_line, signal_line, macd_hist = self._macd(close)
         atr = self._atr(high, low, close)
 
-        vol_median = volume.rolling(self.vol_period, min_periods=max(1, self.vol_period // 2)).median()
-        vol_surge = volume > (self.vol_mult * vol_median)
+        # Volume filter: volume > vol_mult * rolling avg volume
+        vol_avg = volume.rolling(self.vol_period, min_periods=self.vol_period).mean()
+        vol_filter = volume > (vol_avg * self.vol_mult)
 
-        # Regime detection: trending if slope of trend_ema over last 3 bars is significant
-        trend_ema_slope = trend_ema.diff(3) / trend_ema.shift(3).replace(0, np.nan)
-        is_trending = trend_ema_slope.abs() > 0.001
+        # Regime filter: Trend if close above trend_ema else range
+        is_uptrend = close > trend_ema
+        is_downtrend = close < trend_ema
 
-        # Ranging regime is the complement
-        is_ranging = ~is_trending
+        # Entry conditions
+        # LONG: 
+        # - EMA fast above EMA slow (bullish momentum)
+        # - MACD histogram > 0 and aligned with uptrend
+        # - RSI oversold < RSI < 60 (rebound zone)
+        # - volume filter passed
+        # - in uptrend regime
 
-        # More conservative RSI thresholds in ranging regime
-        rsi_os_range = 40
-        rsi_ob_range = 60
+        long_entry = (
+            (ema_fast > ema_slow) &
+            (macd_hist > 0) &
+            (is_uptrend) &
+            (rsi > self.rsi_oversold) & (rsi < 60) &
+            (vol_filter)
+        )
 
+        # SHORT entry:
+        # - EMA fast below EMA slow
+        # - MACD histogram < 0 and aligned with downtrend
+        # - RSI < rsi_overbought but >40 (rejection zone)
+        # - volume filter passed
+        # - in downtrend regime
+
+        short_entry = (
+            (ema_fast < ema_slow) &
+            (macd_hist < 0) &
+            (is_downtrend) &
+            (rsi < self.rsi_overbought) & (rsi > 40) &
+            (vol_filter)
+        )
+
+        # Initialize signal series
         signals = pd.Series(0, index=df.index)
 
-        # Long conditions
-        long_condition_trend = (
-            (close > trend_ema) &
-            (ema_f > ema_s) &
-            (macd_hist > 0) &
-            (rsi > self.rsi_oversold) &
-            vol_surge &
-            is_trending
-        )
+        position = 0  # 1=long, -1=short, 0=flat
+        entry_price = 0.0
+        trail_stop = np.nan
 
-        long_condition_range = (
-            (rsi < rsi_os_range) &
-            (macd_hist > 0) &
-            vol_surge &
-            is_ranging
-        )
+        for i in range(len(df)):
+            if i == 0:
+                signals.iloc[i] = 0
+                continue
 
-        # Short conditions
-        short_condition_trend = (
-            (close < trend_ema) &
-            (ema_f < ema_s) &
-            (macd_hist < 0) &
-            (rsi < self.rsi_overbought) &
-            vol_surge &
-            is_trending
-        )
+            close_i = close.iloc[i]
+            atr_i = atr.iloc[i]
 
-        short_condition_range = (
-            (rsi > rsi_ob_range) &
-            (macd_hist < 0) &
-            vol_surge &
-            is_ranging
-        )
+            if position == 0:
+                # Check entries
+                if long_entry.iloc[i]:
+                    position = 1
+                    entry_price = close_i
+                    trail_stop = close_i - self.atr_stop_mult * atr_i
+                    signals.iloc[i] = 1
+                elif short_entry.iloc[i]:
+                    position = -1
+                    entry_price = close_i
+                    trail_stop = close_i + self.atr_stop_mult * atr_i
+                    signals.iloc[i] = -1
+                else:
+                    signals.iloc[i] = 0
 
-        signals[long_condition_trend | long_condition_range] = 1
-        signals[short_condition_trend | short_condition_range] = -1
+            elif position == 1:
+                # Update trailing stop for LONG
+                trail_stop = max(trail_stop, close_i - self.atr_stop_mult * atr_i)
+
+                # Exit conditions LONG
+                exit_long = (
+                    # Price hits trailing stop
+                    close_i < trail_stop or
+                    # EMA fast crosses below slow
+                    (ema_fast.iloc[i] < ema_slow.iloc[i]) or
+                    # MACD histogram turns negative
+                    (macd_hist.iloc[i] < 0)
+                )
+
+                if exit_long:
+                    position = 0
+                    signals.iloc[i] = 0
+                    trail_stop = np.nan
+                else:
+                    signals.iloc[i] = 1
+
+            elif position == -1:
+                # Update trailing stop for SHORT
+                trail_stop = min(trail_stop, close_i + self.atr_stop_mult * atr_i)
+
+                # Exit conditions SHORT
+                exit_short = (
+                    # Price hits trailing stop
+                    close_i > trail_stop or
+                    # EMA fast crosses above slow
+                    (ema_fast.iloc[i] > ema_slow.iloc[i]) or
+                    # MACD histogram turns positive
+                    (macd_hist.iloc[i] > 0)
+                )
+
+                if exit_short:
+                    position = 0
+                    signals.iloc[i] = 0
+                    trail_stop = np.nan
+                else:
+                    signals.iloc[i] = -1
 
         # Shift signals by 1 to avoid look-ahead bias
-        signals = signals.shift(1).fillna(0).astype(int)
-
-        return signals
-
+        return signals.shift(1).fillna(0).astype(int)
