@@ -1,84 +1,106 @@
-import pandas as pd
+"""
+CryptoDayTradingStrategy — v1 Baseline
+Multi-indicator confluence: RSI + EMA crossover + MACD + Volume filter
+Designed for 1-hour OHLCV data on BTC-USD / ETH-USD.
+No look-ahead bias. No external TA libraries required.
+"""
+from __future__ import annotations
 import numpy as np
+import pandas as pd
+
 
 class CryptoDayTradingStrategy:
-    def __init__(self, rsi_period=14, rsi_overbought=70, rsi_oversold=30, ema_fast_period=9, ema_slow_period=36, volume_period=20, volume_surge_mult=1.5):
+    """
+    Multi-indicator confluence strategy for crypto day trading.
+    Signals: +1 (LONG), -1 (SHORT), 0 (FLAT)
+    """
+
+    def __init__(
+        self,
+        rsi_period: int = 14,
+        rsi_oversold: float = 35,
+        rsi_overbought: float = 65,
+        ema_fast: int = 9,
+        ema_slow: int = 21,
+        macd_fast: int = 12,
+        macd_slow: int = 26,
+        macd_signal: int = 9,
+        vol_period: int = 20,
+        vol_mult: float = 1.2,
+        trend_ema: int = 50,
+    ):
         self.rsi_period = rsi_period
-        self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
-        self.ema_fast_period = ema_fast_period  # for 1H data
-        self.ema_slow_period = ema_slow_period  # for 4H data trend filter
-        self.volume_period = volume_period
-        self.volume_surge_mult = volume_surge_mult
+        self.rsi_overbought = rsi_overbought
+        self.ema_fast = ema_fast
+        self.ema_slow = ema_slow
+        self.macd_fast = macd_fast
+        self.macd_slow = macd_slow
+        self.macd_signal = macd_signal
+        self.vol_period = vol_period
+        self.vol_mult = vol_mult
+        self.trend_ema = trend_ema
 
-    def _rsi(self, close):
+    def _rsi(self, close: pd.Series) -> pd.Series:
         delta = close.diff()
-        gain = delta.where(delta > 0, 0.0)
-        loss = -delta.where(delta < 0, 0.0)
-        avg_gain = gain.rolling(window=self.rsi_period, min_periods=self.rsi_period).mean()
-        avg_loss = loss.rolling(window=self.rsi_period, min_periods=self.rsi_period).mean()
-        rs = avg_gain / avg_loss
-        rsi = 100 - (100 / (1 + rs))
-        return rsi
+        gain = delta.clip(lower=0)
+        loss = (-delta).clip(lower=0)
+        avg_gain = gain.ewm(com=self.rsi_period - 1, min_periods=self.rsi_period).mean()
+        avg_loss = loss.ewm(com=self.rsi_period - 1, min_periods=self.rsi_period).mean()
+        rs = avg_gain / (avg_loss + 1e-10)
+        return 100 - (100 / (1 + rs))
 
-    def _ema(self, series, span):
+    def _macd(self, close: pd.Series):
+        ema_f = close.ewm(span=self.macd_fast, adjust=False).mean()
+        ema_s = close.ewm(span=self.macd_slow, adjust=False).mean()
+        macd_line = ema_f - ema_s
+        signal_line = macd_line.ewm(span=self.macd_signal, adjust=False).mean()
+        histogram = macd_line - signal_line
+        return macd_line, signal_line, histogram
+
+    def _ema(self, series: pd.Series, span: int) -> pd.Series:
         return series.ewm(span=span, adjust=False).mean()
 
-    def generate_signals(self, df):
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         """
-        df must contain columns: ['open', 'high', 'low', 'close', 'volume'] with 1H timeframe
-        Returns pd.Series of signals: +1 (long), -1 (short), 0 (flat)
+        Generate trading signals for each bar.
+        Returns pd.Series: +1 (long), -1 (short), 0 (flat).
         """
-        close = df['close']
-        volume = df['volume']
-        index = df.index
+        if len(df) < max(self.macd_slow, self.trend_ema) + 10:
+            return pd.Series(0, index=df.index)
 
-        # Calculate fast RSI on 1H data
+        close = df["close"].astype(float)
+        volume = df["volume"].astype(float)
+
         rsi = self._rsi(close)
+        ema_f = self._ema(close, self.ema_fast)
+        ema_s = self._ema(close, self.ema_slow)
+        trend = self._ema(close, self.trend_ema)
+        _, _, macd_hist = self._macd(close)
 
-        # Calculate slow EMA trend filter on 4H timeframe
-        # Resample to 4H OHLCV
-        df_4h = df.resample('4H').agg({'close':'last', 'volume':'sum'})
-        ema_fast_4h = self._ema(df_4h['close'], self.ema_fast_period)
-        ema_slow_4h = self._ema(df_4h['close'], self.ema_slow_period)
+        vol_median = volume.rolling(self.vol_period, min_periods=self.vol_period // 2).median()
+        vol_surge = volume > (self.vol_mult * vol_median)
 
-        # Determine 4H trend: +1 if ema_fast > ema_slow else -1
-        trend_4h = pd.Series(0, index=df_4h.index)
-        trend_4h[ema_fast_4h > ema_slow_4h] = 1
-        trend_4h[ema_fast_4h < ema_slow_4h] = -1
+        # LONG conditions
+        bullish_trend = close > trend
+        ema_cross_up = (ema_f > ema_s) & (ema_f.shift(1) <= ema_s.shift(1))
+        rsi_recovering = (rsi > self.rsi_oversold) & (rsi.shift(1) <= self.rsi_oversold)
+        macd_bullish = macd_hist > 0
+        long_entry = bullish_trend & ema_cross_up & rsi_recovering & macd_bullish & vol_surge
+        long_hold = bullish_trend & (ema_f > ema_s) & (rsi < self.rsi_overbought) & (rsi > 40)
 
-        # Forward-fill 4H trend to 1H index
-        trend_4h_ffill = trend_4h.reindex(index, method='ffill').fillna(0).astype(int)
+        # SHORT conditions
+        bearish_trend = close < trend
+        ema_cross_down = (ema_f < ema_s) & (ema_f.shift(1) >= ema_s.shift(1))
+        rsi_reversing = (rsi < self.rsi_overbought) & (rsi.shift(1) >= self.rsi_overbought)
+        macd_bearish = macd_hist < 0
+        short_entry = bearish_trend & ema_cross_down & rsi_reversing & macd_bearish & vol_surge
+        short_hold = bearish_trend & (ema_f < ema_s) & (rsi > self.rsi_oversold) & (rsi < 60)
 
-        # Volume surge filter
-        vol_median = volume.rolling(self.volume_period, min_periods=self.volume_period//2).median()
-        vol_filter = volume > self.volume_surge_mult * vol_median
+        raw = pd.Series(0, index=df.index, dtype=int)
+        raw[long_entry | long_hold] = 1
+        raw[short_entry | short_hold] = -1
 
-        signals = pd.Series(0, index=index)
-
-        # Long entry: RSI crosses above oversold (30) AND 4H trend is bullish AND volume surge
-        rsi_cross_up = (rsi > self.rsi_oversold) & (rsi.shift(1) <= self.rsi_oversold)
-        long_entry = rsi_cross_up & (trend_4h_ffill == 1) & vol_filter
-
-        # Short entry: RSI crosses below overbought (70) AND 4H trend is bearish AND volume surge
-        rsi_cross_down = (rsi < self.rsi_overbought) & (rsi.shift(1) >= self.rsi_overbought)
-        short_entry = rsi_cross_down & (trend_4h_ffill == -1) & vol_filter
-
-        signals[long_entry] = 1
-        signals[short_entry] = -1
-
-        # Hold position until opposite signal
-        signals = signals.replace(to_replace=0, method='ffill')
-
-        # Exit long when RSI crosses back below 50 or 4H trend flips bearish
-        exit_long = ((rsi < 50) | (trend_4h_ffill == -1)) & (signals == 1)
-        signals[exit_long] = 0
-
-        # Exit short when RSI crosses back above 50 or 4H trend flips bullish
-        exit_short = ((rsi > 50) | (trend_4h_ffill == 1)) & (signals == -1)
-        signals[exit_short] = 0
-
-        # Shift signals by 1 to avoid lookahead bias
-        signals = signals.shift(1).fillna(0).astype(int)
-
+        # Shift by 1 bar to avoid look-ahead bias
+        signals = raw.shift(1).fillna(0).astype(int)
         return signals
