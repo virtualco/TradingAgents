@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradingAgents — Performance Analytics</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <style>
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --surface2:#1c2128;
+      --border:  #30363d;
+      --text:    #e6edf3;
+      --muted:   #8b949e;
+      --green:   #3fb950;
+      --red:     #f85149;
+      --yellow:  #d29922;
+      --blue:    #58a6ff;
+      --purple:  #bc8cff;
+      --orange:  #ffa657;
+      --teal:    #39d353;
+      --radius:  10px;
+      --font:    -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --mono:    'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; min-height: 100vh; }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 28px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-icon { font-size: 20px; }
+    .logo-text { font-size: 15px; font-weight: 700; color: var(--blue); letter-spacing: -0.3px; }
+    .logo-sub { font-size: 11px; color: var(--muted); margin-left: 4px; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .nav-tabs { display: flex; gap: 2px; }
+    .nav-tab {
+      padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      color: var(--muted); cursor: pointer; text-decoration: none; transition: all 0.15s;
+    }
+    .nav-tab:hover { background: var(--surface2); color: var(--text); }
+    .nav-tab.active { background: var(--blue); color: #000; font-weight: 600; }
+    .endpoint-row { display: flex; gap: 8px; align-items: center; }
+    .ep-input {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 5px 10px; font-size: 12px; width: 240px;
+      font-family: var(--mono);
+    }
+    .ep-input:focus { outline: none; border-color: var(--blue); }
+    .btn { background: var(--blue); color: #000; border: none; border-radius: 6px; padding: 5px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn:hover { opacity: 0.85; }
+    .btn-outline { background: transparent; color: var(--blue); border: 1px solid var(--blue); }
+    .btn-outline:hover { background: rgba(88,166,255,0.1); }
+
+    /* ── Layout ── */
+    .main { padding: 24px 28px; display: flex; flex-direction: column; gap: 20px; }
+
+    /* ── Status Banner ── */
+    .status-banner {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .status-left { display: flex; align-items: center; gap: 16px; }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .status-text { font-size: 13px; font-weight: 600; }
+    .status-meta { font-size: 11px; color: var(--muted); }
+    .status-right { display: flex; gap: 20px; }
+    .stat-pill { text-align: center; }
+    .stat-pill .sp-val { font-size: 18px; font-weight: 700; font-family: var(--mono); }
+    .stat-pill .sp-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── KPI Grid ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+    @media (max-width: 1200px) { .kpi-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 700px)  { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+    .kpi {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 18px 16px; position: relative; overflow: hidden;
+    }
+    .kpi::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: var(--accent, var(--blue));
+    }
+    .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+    .kpi-value { font-size: 24px; font-weight: 700; font-family: var(--mono); line-height: 1; }
+    .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .kpi-delta { font-size: 11px; font-weight: 600; margin-top: 3px; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red); }
+    .neu { color: var(--text); }
+
+    /* ── Chart Cards ── */
+    .charts-row { display: grid; gap: 16px; }
+    .charts-2 { grid-template-columns: 1fr 1fr; }
+    .charts-3 { grid-template-columns: 2fr 1fr 1fr; }
+    @media (max-width: 1000px) { .charts-2, .charts-3 { grid-template-columns: 1fr; } }
+
+    .chart-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .chart-header {
+      padding: 14px 18px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .chart-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .chart-subtitle { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .chart-body { padding: 16px; position: relative; }
+    .chart-body canvas { max-height: 260px; }
+    .chart-body-sm canvas { max-height: 180px; }
+
+    /* ── Table ── */
+    .table-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .table-title { font-size: 13px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { color: var(--muted); text-align: left; padding: 10px 16px; border-bottom: 1px solid var(--border); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; white-space: nowrap; }
+    td { padding: 10px 16px; border-bottom: 1px solid rgba(48,54,61,0.5); font-family: var(--mono); font-size: 12px; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(88,166,255,0.03); }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+    .b-green  { background: rgba(63,185,80,0.15);  color: var(--green);  border: 1px solid rgba(63,185,80,0.25); }
+    .b-red    { background: rgba(248,81,73,0.15);  color: var(--red);    border: 1px solid rgba(248,81,73,0.25); }
+    .b-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.25); }
+    .b-blue   { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.25); }
+    .b-purple { background: rgba(188,140,255,0.15);color: var(--purple); border: 1px solid rgba(188,140,255,0.25); }
+    .b-muted  { background: rgba(139,148,158,0.1); color: var(--muted);  border: 1px solid rgba(139,148,158,0.2); }
+
+    /* ── Regime Hurst Gauge ── */
+    .hurst-gauges { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .hurst-gauge { background: var(--surface2); border-radius: 8px; padding: 14px; }
+    .hg-sym { font-size: 14px; font-weight: 700; color: var(--blue); margin-bottom: 6px; }
+    .hg-regime { margin-bottom: 10px; }
+    .hg-bar-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; position: relative; margin: 6px 0; }
+    .hg-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+    .hg-labels { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); }
+    .hg-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+    .hg-m { text-align: center; }
+    .hg-m-val { font-size: 14px; font-weight: 700; font-family: var(--mono); }
+    .hg-m-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; }
+
+    /* ── Error ── */
+    .error-box {
+      background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.25);
+      border-radius: var(--radius); padding: 14px 18px; color: var(--red);
+      font-size: 12px; display: none;
+    }
+
+    /* ── Tabs ── */
+    .period-tabs { display: flex; gap: 4px; }
+    .period-tab {
+      padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 500;
+      color: var(--muted); cursor: pointer; border: 1px solid transparent;
+    }
+    .period-tab:hover { color: var(--text); }
+    .period-tab.active { background: var(--surface2); color: var(--blue); border-color: var(--border); }
+
+    /* ── Scrollable table ── */
+    .table-scroll { max-height: 320px; overflow-y: auto; }
+    .table-scroll::-webkit-scrollbar { width: 4px; }
+    .table-scroll::-webkit-scrollbar-track { background: transparent; }
+    .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">⚡</span>
+    <span class="logo-text">TradingAgents</span>
+    <span class="logo-sub">Performance Analytics</span>
+  </div>
+  <div class="nav-tabs">
+    <a href="index.html" class="nav-tab">Live Dashboard</a>
+    <a href="performance.html" class="nav-tab active">Performance</a>
+  </div>
+  <div class="header-right">
+    <div class="endpoint-row">
+      <input id="ep" class="ep-input" value="http://localhost:8765/metrics" />
+      <button class="btn" onclick="connect()">Connect</button>
+      <button class="btn btn-outline" onclick="loadDemo()">Demo</button>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <div id="error-box" class="error-box"></div>
+
+  <!-- Status Banner -->
+  <div class="status-banner">
+    <div class="status-left">
+      <div class="pulse" id="pulse"></div>
+      <div>
+        <div class="status-text" id="status-text">Connecting to metrics server...</div>
+        <div class="status-meta" id="status-meta">—</div>
+      </div>
+    </div>
+    <div class="status-right">
+      <div class="stat-pill"><div class="sp-val pos" id="sb-pnl">—</div><div class="sp-lbl">Total P&L</div></div>
+      <div class="stat-pill"><div class="sp-val" id="sb-trades">—</div><div class="sp-lbl">Total Trades</div></div>
+      <div class="stat-pill"><div class="sp-val" id="sb-wr">—</div><div class="sp-lbl">Win Rate</div></div>
+      <div class="stat-pill"><div class="sp-val" id="sb-sharpe">—</div><div class="sp-lbl">Sharpe</div></div>
+    </div>
+  </div>
+
+  <!-- KPI Grid -->
+  <div class="kpi-grid">
+    <div class="kpi" style="--accent:var(--green)">
+      <div class="kpi-label">Realized P&L</div>
+      <div class="kpi-value pos" id="kpi-rpnl">—</div>
+      <div class="kpi-sub">All closed trades</div>
+    </div>
+    <div class="kpi" style="--accent:var(--blue)">
+      <div class="kpi-label">Unrealized P&L</div>
+      <div class="kpi-value" id="kpi-upnl">—</div>
+      <div class="kpi-sub">Open positions</div>
+    </div>
+    <div class="kpi" style="--accent:var(--purple)">
+      <div class="kpi-label">Win Rate</div>
+      <div class="kpi-value" id="kpi-wr">—</div>
+      <div class="kpi-sub" id="kpi-wr-sub">—</div>
+    </div>
+    <div class="kpi" style="--accent:var(--orange)">
+      <div class="kpi-label">Avg Trade P&L</div>
+      <div class="kpi-value" id="kpi-avg">—</div>
+      <div class="kpi-sub">Per closed trade</div>
+    </div>
+    <div class="kpi" style="--accent:var(--red)">
+      <div class="kpi-label">Max Drawdown</div>
+      <div class="kpi-value neg" id="kpi-dd">—</div>
+      <div class="kpi-sub" id="kpi-dd-sub">Daily limit</div>
+    </div>
+    <div class="kpi" style="--accent:var(--teal)">
+      <div class="kpi-label">Profit Factor</div>
+      <div class="kpi-value" id="kpi-pf">—</div>
+      <div class="kpi-sub">Gross profit / loss</div>
+    </div>
+  </div>
+
+  <!-- P&L Curve + Regime Distribution -->
+  <div class="charts-row charts-3">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Cumulative P&L Curve</div>
+          <div class="chart-subtitle">Realized + unrealized, all symbols</div>
+        </div>
+        <div class="period-tabs">
+          <div class="period-tab active" onclick="setPeriod('all',this)">All</div>
+          <div class="period-tab" onclick="setPeriod('7d',this)">7D</div>
+          <div class="period-tab" onclick="setPeriod('30d',this)">30D</div>
+        </div>
+      </div>
+      <div class="chart-body"><canvas id="chart-pnl"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Regime Distribution</div>
+          <div class="chart-subtitle">% of bars per regime</div>
+        </div>
+      </div>
+      <div class="chart-body chart-body-sm"><canvas id="chart-regime"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Trade P&L Distribution</div>
+          <div class="chart-subtitle">Histogram of trade outcomes</div>
+        </div>
+      </div>
+      <div class="chart-body chart-body-sm"><canvas id="chart-pnl-dist"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- Drawdown + Win/Loss by Regime -->
+  <div class="charts-row charts-2">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Drawdown Over Time</div>
+          <div class="chart-subtitle">Rolling max drawdown from peak NAV</div>
+        </div>
+      </div>
+      <div class="chart-body"><canvas id="chart-dd"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Performance by Regime & Strategy</div>
+          <div class="chart-subtitle">Win rate and avg P&L per sub-strategy</div>
+        </div>
+      </div>
+      <div class="chart-body"><canvas id="chart-regime-perf"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- Hurst Gauges + Symbol Breakdown -->
+  <div class="charts-row charts-2">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">Live Regime Indicators</div>
+          <div class="chart-subtitle">Hurst exponent and ADX per symbol</div>
+        </div>
+      </div>
+      <div class="chart-body">
+        <div class="hurst-gauges" id="hurst-gauges">
+          <div style="color:var(--muted);text-align:center;grid-column:1/-1;padding:20px">Waiting for live data...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <div class="chart-title">P&L by Symbol</div>
+          <div class="chart-subtitle">Realized P&L breakdown</div>
+        </div>
+      </div>
+      <div class="chart-body"><canvas id="chart-symbol"></canvas></div>
+    </div>
+
+  </div>
+
+  <!-- Trade Log -->
+  <div class="table-card">
+    <div class="table-header">
+      <div class="table-title">Trade Log</div>
+      <div style="font-size:11px;color:var(--muted)" id="trade-count">—</div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Symbol</th><th>Side</th><th>Qty</th>
+            <th>Price</th><th>P&L (USDT)</th><th>Regime</th>
+            <th>Strategy</th><th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="trade-tbody">
+          <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No trades yet — connect to metrics server or load demo data</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Chart defaults ────────────────────────────────────────────────────────────
+Chart.defaults.color = '#8b949e';
+Chart.defaults.borderColor = '#30363d';
+Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+Chart.defaults.font.size = 11;
+
+const COLORS = {
+  green:  '#3fb950', red: '#f85149', blue: '#58a6ff',
+  purple: '#bc8cff', yellow: '#d29922', orange: '#ffa657',
+  teal:   '#39d353', muted: '#8b949e',
+};
+
+// ── Chart instances ───────────────────────────────────────────────────────────
+let charts = {};
+
+function mkChart(id, config) {
+  if (charts[id]) charts[id].destroy();
+  const ctx = document.getElementById(id).getContext('2d');
+  charts[id] = new Chart(ctx, config);
+  return charts[id];
+}
+
+// ── Demo data generator ───────────────────────────────────────────────────────
+function generateDemoData() {
+  const now = Date.now();
+  const trades = [];
+  const regimeHistory = [];
+  let pnl = 0;
+  const symbols = ['BTCUSDT', 'ETHUSDT'];
+  const regimes = ['TRENDING', 'RANGING', 'TRANSITION'];
+  const strategies = ['MOMENTUM', 'MEAN_REVERSION', 'NONE'];
+
+  // Generate 60 days of hourly regime history
+  for (let h = 60 * 24; h >= 0; h--) {
+    const ts = new Date(now - h * 3600000).toISOString();
+    for (const sym of symbols) {
+      const hurst = 0.45 + Math.random() * 0.15 + (h < 200 ? 0.05 : 0);
+      const adx = 15 + Math.random() * 25;
+      let regime = 'TRANSITION';
+      if (hurst > 0.55 && adx > 25) regime = 'TRENDING';
+      else if (hurst < 0.45 && adx < 20) regime = 'RANGING';
+      regimeHistory.push({ symbol: sym, regime, hurst, adx, timestamp: ts });
+    }
+  }
+
+  // Generate 120 trades over 60 days
+  for (let i = 0; i < 120; i++) {
+    const sym = symbols[Math.floor(Math.random() * symbols.length)];
+    const side = Math.random() > 0.5 ? 'LONG' : 'SHORT';
+    const regime = regimes[Math.floor(Math.random() * 2)]; // mostly trending/ranging
+    const strategy = regime === 'TRENDING' ? 'MOMENTUM' : 'MEAN_REVERSION';
+    const price = sym === 'BTCUSDT' ? 75000 + Math.random() * 15000 : 3000 + Math.random() * 1000;
+    const qty = sym === 'BTCUSDT' ? 0.001 + Math.random() * 0.002 : 0.05 + Math.random() * 0.1;
+    // Momentum wins more in trending, MR wins more in ranging
+    const winBias = strategy === 'MOMENTUM' ? 0.58 : 0.54;
+    const won = Math.random() < winBias;
+    const tradePnl = won
+      ? (Math.random() * 15 + 2)
+      : -(Math.random() * 10 + 1);
+    pnl += tradePnl;
+    const daysAgo = 60 - Math.floor(i * 0.5);
+    trades.push({
+      id: i + 1, symbol: sym, side, qty: qty.toFixed(4),
+      price: price.toFixed(2), pnl: tradePnl.toFixed(4),
+      regime, strategy,
+      timestamp: new Date(now - daysAgo * 86400000 - Math.random() * 86400000).toISOString(),
+    });
+  }
+  trades.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Current live signals
+  const reports = symbols.map(sym => {
+    const hurst = 0.48 + Math.random() * 0.12;
+    const adx = 18 + Math.random() * 20;
+    let regime = 'TRANSITION';
+    if (hurst > 0.55 && adx > 25) regime = 'TRENDING';
+    else if (hurst < 0.45 && adx < 20) regime = 'RANGING';
+    const signal = regime === 'TRENDING' ? (Math.random() > 0.5 ? 1 : -1) :
+                   regime === 'RANGING'  ? (Math.random() > 0.5 ? 1 : -1) : 0;
+    return {
+      symbol: sym, signal, regime, hurst, adx,
+      rsi: 40 + Math.random() * 30,
+      sub_strategy: regime === 'TRENDING' ? 'MOMENTUM' : regime === 'RANGING' ? 'MEAN_REVERSION' : 'NONE',
+      close_price: sym === 'BTCUSDT' ? 81315 + Math.random() * 1000 : 3200 + Math.random() * 100,
+      action: signal !== 0 ? 'OPEN' : 'FLAT',
+    };
+  });
+
+  return {
+    cycle_time: new Date().toISOString(),
+    symbols,
+    reports,
+    recent_trades: trades.slice(0, 50),
+    _all_trades: trades,
+    _regime_history: regimeHistory,
+    daily_stats: {
+      realized_pnl: pnl * 0.9,
+      unrealized_pnl: pnl * 0.1,
+      n_trades: trades.length,
+      peak_nav: 100000 + pnl * 1.2,
+    },
+    risk_state: {
+      kill_switch_active: false,
+      circuit_breaker_tripped: false,
+      daily_drawdown_pct: 1.8,
+      max_daily_drawdown_pct: 5.0,
+      open_positions: 1,
+      max_positions: 2,
+      realized_pnl_today: pnl * 0.05,
+    },
+  };
+}
+
+// ── Render all charts and tables ──────────────────────────────────────────────
+let _allData = null;
+let _period = 'all';
+
+function setPeriod(p, el) {
+  _period = p;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  if (_allData) renderCharts(_allData);
+}
+
+function renderAll(data) {
+  _allData = data;
+  renderStatus(data);
+  renderKPIs(data);
+  renderCharts(data);
+  renderHurstGauges(data);
+  renderTradeTable(data);
+}
+
+function renderStatus(data) {
+  const rs = data.risk_state || {};
+  const ok = !rs.kill_switch_active && !rs.circuit_breaker_tripped;
+  document.getElementById('pulse').style.background = ok ? COLORS.green : COLORS.red;
+  document.getElementById('status-text').textContent =
+    ok ? 'System Online — Dual-Regime Strategy Active' : 'System Halted';
+  document.getElementById('status-meta').textContent =
+    `Last update: ${new Date(data.cycle_time || Date.now()).toLocaleString()} | ` +
+    `Symbols: ${(data.symbols || []).join(', ')}`;
+
+  const trades = data._all_trades || data.recent_trades || [];
+  const pnl = trades.reduce((s, t) => s + parseFloat(t.pnl || 0), 0);
+  const wins = trades.filter(t => parseFloat(t.pnl) > 0).length;
+  const wr = trades.length > 0 ? (wins / trades.length * 100).toFixed(1) : '—';
+
+  // Approximate Sharpe from trade returns
+  const rets = trades.map(t => parseFloat(t.pnl));
+  const mean = rets.reduce((a, b) => a + b, 0) / (rets.length || 1);
+  const std = Math.sqrt(rets.map(r => (r - mean) ** 2).reduce((a, b) => a + b, 0) / (rets.length || 1));
+  const sharpe = std > 0 ? (mean / std * Math.sqrt(252)).toFixed(2) : '—';
+
+  document.getElementById('sb-pnl').textContent = (pnl >= 0 ? '+' : '') + pnl.toFixed(2) + ' USDT';
+  document.getElementById('sb-pnl').className = 'sp-val ' + (pnl >= 0 ? 'pos' : 'neg');
+  document.getElementById('sb-trades').textContent = trades.length;
+  document.getElementById('sb-wr').textContent = wr + '%';
+  document.getElementById('sb-sharpe').textContent = sharpe;
+}
+
+function renderKPIs(data) {
+  const trades = data._all_trades || data.recent_trades || [];
+  const wins = trades.filter(t => parseFloat(t.pnl) > 0);
+  const losses = trades.filter(t => parseFloat(t.pnl) <= 0);
+  const realized = trades.reduce((s, t) => s + parseFloat(t.pnl || 0), 0);
+  const unrealized = (data.daily_stats || {}).unrealized_pnl || 0;
+  const wr = trades.length > 0 ? (wins.length / trades.length * 100).toFixed(1) : '—';
+  const avgPnl = trades.length > 0 ? (realized / trades.length).toFixed(4) : '—';
+  const grossWin = wins.reduce((s, t) => s + parseFloat(t.pnl), 0);
+  const grossLoss = Math.abs(losses.reduce((s, t) => s + parseFloat(t.pnl), 0));
+  const pf = grossLoss > 0 ? (grossWin / grossLoss).toFixed(2) : '∞';
+  const dd = (data.risk_state || {}).daily_drawdown_pct || 0;
+  const maxDd = (data.risk_state || {}).max_daily_drawdown_pct || 5;
+
+  const set = (id, val, cls) => {
+    const el = document.getElementById(id);
+    el.textContent = val;
+    if (cls) el.className = 'kpi-value ' + cls;
+  };
+
+  set('kpi-rpnl', (realized >= 0 ? '+' : '') + realized.toFixed(4) + ' USDT', realized >= 0 ? 'pos' : 'neg');
+  set('kpi-upnl', (unrealized >= 0 ? '+' : '') + unrealized.toFixed(4) + ' USDT', unrealized >= 0 ? 'pos' : 'neg');
+  set('kpi-wr', wr + '%', parseFloat(wr) >= 50 ? 'pos' : 'neg');
+  document.getElementById('kpi-wr-sub').textContent = `${wins.length}W / ${losses.length}L`;
+  set('kpi-avg', avgPnl + ' USDT', parseFloat(avgPnl) >= 0 ? 'pos' : 'neg');
+  set('kpi-dd', dd.toFixed(2) + '%', 'neg');
+  document.getElementById('kpi-dd-sub').textContent = `Limit: ${maxDd.toFixed(1)}%`;
+  set('kpi-pf', pf, parseFloat(pf) >= 1 ? 'pos' : 'neg');
+}
+
+function renderCharts(data) {
+  const trades = data._all_trades || data.recent_trades || [];
+  const regimeHist = data._regime_history || [];
+
+  // Filter by period
+  const now = Date.now();
+  const cutoff = _period === '7d' ? now - 7 * 86400000 :
+                 _period === '30d' ? now - 30 * 86400000 : 0;
+  const filtered = trades.filter(t => new Date(t.timestamp).getTime() >= cutoff);
+
+  // ── 1. Cumulative P&L Curve ──
+  const sortedTrades = [...filtered].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  let cumPnl = 0;
+  const pnlPoints = sortedTrades.map(t => {
+    cumPnl += parseFloat(t.pnl || 0);
+    return { x: new Date(t.timestamp), y: parseFloat(cumPnl.toFixed(4)) };
+  });
+
+  mkChart('chart-pnl', {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Cumulative P&L (USDT)',
+        data: pnlPoints,
+        borderColor: cumPnl >= 0 ? COLORS.green : COLORS.red,
+        backgroundColor: cumPnl >= 0 ? 'rgba(63,185,80,0.08)' : 'rgba(248,81,73,0.08)',
+        borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` P&L: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(4)} USDT`,
+          },
+        },
+      },
+      scales: {
+        x: { type: 'time', time: { unit: _period === '7d' ? 'day' : 'week' }, grid: { color: '#21262d' } },
+        y: {
+          grid: { color: '#21262d' },
+          ticks: { callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) },
+        },
+      },
+    },
+  });
+
+  // ── 2. Regime Distribution Donut ──
+  const regimeCounts = { TRENDING: 0, RANGING: 0, TRANSITION: 0 };
+  regimeHist.forEach(r => { if (regimeCounts[r.regime] !== undefined) regimeCounts[r.regime]++; });
+  const total = Object.values(regimeCounts).reduce((a, b) => a + b, 1);
+
+  mkChart('chart-regime', {
+    type: 'doughnut',
+    data: {
+      labels: ['Trending', 'Ranging', 'Transition'],
+      datasets: [{
+        data: [regimeCounts.TRENDING, regimeCounts.RANGING, regimeCounts.TRANSITION],
+        backgroundColor: [COLORS.green, COLORS.purple, COLORS.yellow],
+        borderColor: '#161b22', borderWidth: 3,
+        hoverOffset: 6,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { padding: 12, boxWidth: 10 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.label}: ${(ctx.parsed / total * 100).toFixed(1)}%`,
+          },
+        },
+      },
+    },
+  });
+
+  // ── 3. P&L Distribution Histogram ──
+  const pnlValues = filtered.map(t => parseFloat(t.pnl));
+  const bins = 12;
+  const minPnl = Math.min(...pnlValues, -1);
+  const maxPnl = Math.max(...pnlValues, 1);
+  const binSize = (maxPnl - minPnl) / bins;
+  const histogram = Array(bins).fill(0);
+  const binLabels = [];
+  for (let i = 0; i < bins; i++) {
+    binLabels.push((minPnl + i * binSize).toFixed(2));
+  }
+  pnlValues.forEach(v => {
+    const idx = Math.min(Math.floor((v - minPnl) / binSize), bins - 1);
+    histogram[idx]++;
+  });
+
+  mkChart('chart-pnl-dist', {
+    type: 'bar',
+    data: {
+      labels: binLabels,
+      datasets: [{
+        label: 'Trades',
+        data: histogram,
+        backgroundColor: binLabels.map(l => parseFloat(l) >= 0 ? 'rgba(63,185,80,0.6)' : 'rgba(248,81,73,0.6)'),
+        borderColor: binLabels.map(l => parseFloat(l) >= 0 ? COLORS.green : COLORS.red),
+        borderWidth: 1,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: { color: '#21262d' }, ticks: { stepSize: 1 } },
+      },
+    },
+  });
+
+  // ── 4. Drawdown Chart ──
+  let peak = 0, cumPnl2 = 0;
+  const ddPoints = sortedTrades.map(t => {
+    cumPnl2 += parseFloat(t.pnl || 0);
+    if (cumPnl2 > peak) peak = cumPnl2;
+    const dd = peak > 0 ? ((cumPnl2 - peak) / peak * 100) : 0;
+    return { x: new Date(t.timestamp), y: parseFloat(dd.toFixed(3)) };
+  });
+
+  mkChart('chart-dd', {
+    type: 'line',
+    data: {
+      datasets: [{
+        label: 'Drawdown %',
+        data: ddPoints,
+        borderColor: COLORS.red,
+        backgroundColor: 'rgba(248,81,73,0.1)',
+        borderWidth: 1.5, fill: true, tension: 0.2, pointRadius: 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { type: 'time', time: { unit: 'week' }, grid: { color: '#21262d' } },
+        y: {
+          grid: { color: '#21262d' },
+          ticks: { callback: v => v.toFixed(1) + '%' },
+          reverse: false,
+        },
+      },
+    },
+  });
+
+  // ── 5. Performance by Regime & Strategy ──
+  const stratStats = {};
+  filtered.forEach(t => {
+    const key = t.strategy || 'NONE';
+    if (!stratStats[key]) stratStats[key] = { wins: 0, total: 0, pnl: 0 };
+    stratStats[key].total++;
+    stratStats[key].pnl += parseFloat(t.pnl || 0);
+    if (parseFloat(t.pnl) > 0) stratStats[key].wins++;
+  });
+
+  const stratLabels = Object.keys(stratStats);
+  const wrData = stratLabels.map(k => (stratStats[k].wins / stratStats[k].total * 100).toFixed(1));
+  const avgData = stratLabels.map(k => (stratStats[k].pnl / stratStats[k].total).toFixed(4));
+
+  mkChart('chart-regime-perf', {
+    type: 'bar',
+    data: {
+      labels: stratLabels,
+      datasets: [
+        {
+          label: 'Win Rate %',
+          data: wrData,
+          backgroundColor: [COLORS.green, COLORS.purple, COLORS.muted],
+          borderRadius: 4,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Avg P&L (USDT)',
+          data: avgData,
+          type: 'line',
+          borderColor: COLORS.orange,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointBackgroundColor: COLORS.orange,
+          yAxisID: 'y2',
+        },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { position: 'top', labels: { boxWidth: 10, padding: 10 } } },
+      scales: {
+        y:  { grid: { color: '#21262d' }, ticks: { callback: v => v + '%' }, position: 'left' },
+        y2: { grid: { display: false }, ticks: { callback: v => v + 'U' }, position: 'right' },
+      },
+    },
+  });
+
+  // ── 6. P&L by Symbol ──
+  const symStats = {};
+  filtered.forEach(t => {
+    if (!symStats[t.symbol]) symStats[t.symbol] = 0;
+    symStats[t.symbol] += parseFloat(t.pnl || 0);
+  });
+
+  mkChart('chart-symbol', {
+    type: 'bar',
+    data: {
+      labels: Object.keys(symStats),
+      datasets: [{
+        label: 'Realized P&L (USDT)',
+        data: Object.values(symStats).map(v => parseFloat(v.toFixed(4))),
+        backgroundColor: Object.values(symStats).map(v => v >= 0 ? 'rgba(63,185,80,0.7)' : 'rgba(248,81,73,0.7)'),
+        borderColor: Object.values(symStats).map(v => v >= 0 ? COLORS.green : COLORS.red),
+        borderWidth: 1, borderRadius: 6,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#21262d' }, ticks: { callback: v => (v >= 0 ? '+' : '') + v.toFixed(2) } },
+        y: { grid: { display: false } },
+      },
+    },
+  });
+}
+
+function renderHurstGauges(data) {
+  const reports = data.reports || [];
+  const gauges = document.getElementById('hurst-gauges');
+  if (!reports.length) return;
+
+  gauges.innerHTML = reports.map(r => {
+    const h = r.hurst || 0.5;
+    const hPct = Math.round(h * 100);
+    const hColor = h > 0.55 ? COLORS.green : h < 0.45 ? COLORS.purple : COLORS.yellow;
+    const hLabel = h > 0.55 ? 'Trending' : h < 0.45 ? 'Mean-Rev' : 'Random Walk';
+    const regimeBadge = r.regime === 'TRENDING' ? 'b-green' :
+                        r.regime === 'RANGING'  ? 'b-purple' : 'b-yellow';
+    const rsiColor = r.rsi < 35 ? COLORS.green : r.rsi > 65 ? COLORS.red : COLORS.text;
+    return `
+      <div class="hurst-gauge">
+        <div class="hg-sym">${r.symbol}</div>
+        <div class="hg-regime"><span class="badge ${regimeBadge}">${r.regime || '—'}</span></div>
+        <div class="hg-bar-bg">
+          <div class="hg-bar-fill" style="width:${hPct}%;background:${hColor}"></div>
+        </div>
+        <div class="hg-labels"><span>0 (Rev)</span><span>0.5</span><span>1 (Trend)</span></div>
+        <div class="hg-metrics">
+          <div class="hg-m">
+            <div class="hg-m-val" style="color:${hColor}">${h.toFixed(3)}</div>
+            <div class="hg-m-lbl">Hurst (${hLabel})</div>
+          </div>
+          <div class="hg-m">
+            <div class="hg-m-val">${(r.adx || 0).toFixed(1)}</div>
+            <div class="hg-m-lbl">ADX</div>
+          </div>
+          <div class="hg-m">
+            <div class="hg-m-val" style="color:${rsiColor}">${(r.rsi || 50).toFixed(1)}</div>
+            <div class="hg-m-lbl">RSI</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderTradeTable(data) {
+  const trades = data._all_trades || data.recent_trades || [];
+  document.getElementById('trade-count').textContent = `${trades.length} total trades`;
+
+  const tbody = document.getElementById('trade-tbody');
+  if (!trades.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">No trades yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = trades.slice(0, 100).map((t, i) => {
+    const pnl = parseFloat(t.pnl || 0);
+    const pnlClass = pnl > 0 ? 'pos' : pnl < 0 ? 'neg' : '';
+    const sideBadge = t.side === 'LONG' ? 'b-green' : 'b-red';
+    const regimeBadge = t.regime === 'TRENDING' ? 'b-green' :
+                        t.regime === 'RANGING'  ? 'b-purple' : 'b-yellow';
+    const ts = t.timestamp ? new Date(t.timestamp).toLocaleString() : '—';
+    return `
+      <tr>
+        <td style="color:var(--muted)">${t.id || i + 1}</td>
+        <td style="color:var(--blue);font-weight:600">${t.symbol}</td>
+        <td><span class="badge ${sideBadge}">${t.side}</span></td>
+        <td>${t.qty}</td>
+        <td>${parseFloat(t.price || 0).toFixed(2)}</td>
+        <td class="${pnlClass}">${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)}</td>
+        <td><span class="badge ${regimeBadge}">${t.regime || '—'}</span></td>
+        <td><span class="badge b-muted">${t.strategy || '—'}</span></td>
+        <td style="color:var(--muted);font-size:11px">${ts}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ── Data fetching ─────────────────────────────────────────────────────────────
+let ENDPOINT = 'http://localhost:8765/metrics';
+let pollTimer = null;
+
+function connect() {
+  ENDPOINT = document.getElementById('ep').value.trim();
+  fetchLive();
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(fetchLive, 15000);
+}
+
+async function fetchLive() {
+  try {
+    const resp = await fetch(ENDPOINT, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    document.getElementById('error-box').style.display = 'none';
+    renderAll(data);
+  } catch (e) {
+    const eb = document.getElementById('error-box');
+    eb.textContent = `Cannot reach metrics server (${e.message}). Click "Demo" to view sample data.`;
+    eb.style.display = 'block';
+  }
+}
+
+function loadDemo() {
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('status-text').textContent = 'Demo Mode — Simulated 60-Day Trading History';
+  renderAll(generateDemoData());
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+// Try live first, fall back to demo after 3s
+fetchLive().then(() => {}).catch(() => {});
+setTimeout(() => {
+  if (!_allData) loadDemo();
+}, 3000);
+</script>
+</body>
+</html>
