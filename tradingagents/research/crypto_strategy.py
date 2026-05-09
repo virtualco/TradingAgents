@@ -1,6 +1,6 @@
 """
-CryptoDayTradingStrategy — v1 Baseline
-Multi-indicator confluence: RSI + EMA crossover + MACD + Volume filter
+CryptoDayTradingStrategy — v2 with regime filter and ATR-based sizing
+Multi-indicator confluence: RSI + EMA crossover + MACD + Volume filter + Regime detection + ATR position sizing
 Designed for 1-hour OHLCV data on BTC-USD / ETH-USD.
 No look-ahead bias. No external TA libraries required.
 """
@@ -28,6 +28,7 @@ class CryptoDayTradingStrategy:
         vol_period: int = 20,
         vol_mult: float = 1.2,
         trend_ema: int = 50,
+        atr_period: int = 14,
     ):
         self.rsi_period = rsi_period
         self.rsi_oversold = rsi_oversold
@@ -40,6 +41,7 @@ class CryptoDayTradingStrategy:
         self.vol_period = vol_period
         self.vol_mult = vol_mult
         self.trend_ema = trend_ema
+        self.atr_period = atr_period
 
     def _rsi(self, close: pd.Series) -> pd.Series:
         delta = close.diff()
@@ -61,46 +63,89 @@ class CryptoDayTradingStrategy:
     def _ema(self, series: pd.Series, span: int) -> pd.Series:
         return series.ewm(span=span, adjust=False).mean()
 
+    def _atr(self, high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+        tr1 = high - low
+        tr2 = (high - close.shift()).abs()
+        tr3 = (low - close.shift()).abs()
+        tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+        atr = tr.ewm(span=self.atr_period, adjust=False, min_periods=self.atr_period).mean()
+        return atr
+
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         """
         Generate trading signals for each bar.
         Returns pd.Series: +1 (long), -1 (short), 0 (flat).
         """
-        if len(df) < max(self.macd_slow, self.trend_ema) + 10:
+        if len(df) < max(self.macd_slow, self.trend_ema, self.atr_period) + 10:
             return pd.Series(0, index=df.index)
 
         close = df["close"].astype(float)
+        high = df["high"].astype(float)
+        low = df["low"].astype(float)
         volume = df["volume"].astype(float)
 
         rsi = self._rsi(close)
         ema_f = self._ema(close, self.ema_fast)
         ema_s = self._ema(close, self.ema_slow)
-        trend = self._ema(close, self.trend_ema)
+        trend_ema = self._ema(close, self.trend_ema)
         _, _, macd_hist = self._macd(close)
+        atr = self._atr(high, low, close)
 
-        vol_median = volume.rolling(self.vol_period, min_periods=self.vol_period // 2).median()
+        vol_median = volume.rolling(self.vol_period, min_periods=max(1, self.vol_period // 2)).median()
         vol_surge = volume > (self.vol_mult * vol_median)
 
-        # LONG conditions
-        bullish_trend = close > trend
-        ema_cross_up = (ema_f > ema_s) & (ema_f.shift(1) <= ema_s.shift(1))
-        rsi_recovering = (rsi > self.rsi_oversold) & (rsi.shift(1) <= self.rsi_oversold)
-        macd_bullish = macd_hist > 0
-        long_entry = bullish_trend & ema_cross_up & rsi_recovering & macd_bullish & vol_surge
-        long_hold = bullish_trend & (ema_f > ema_s) & (rsi < self.rsi_overbought) & (rsi > 40)
+        # Regime detection: trending if slope of trend_ema over last 3 bars is significant
+        trend_ema_slope = trend_ema.diff(3) / trend_ema.shift(3).replace(0, np.nan)
+        is_trending = trend_ema_slope.abs() > 0.001
 
-        # SHORT conditions
-        bearish_trend = close < trend
-        ema_cross_down = (ema_f < ema_s) & (ema_f.shift(1) >= ema_s.shift(1))
-        rsi_reversing = (rsi < self.rsi_overbought) & (rsi.shift(1) >= self.rsi_overbought)
-        macd_bearish = macd_hist < 0
-        short_entry = bearish_trend & ema_cross_down & rsi_reversing & macd_bearish & vol_surge
-        short_hold = bearish_trend & (ema_f < ema_s) & (rsi > self.rsi_oversold) & (rsi < 60)
+        # Ranging regime is the complement
+        is_ranging = ~is_trending
 
-        raw = pd.Series(0, index=df.index, dtype=int)
-        raw[long_entry | long_hold] = 1
-        raw[short_entry | short_hold] = -1
+        # More conservative RSI thresholds in ranging regime
+        rsi_os_range = 40
+        rsi_ob_range = 60
 
-        # Shift by 1 bar to avoid look-ahead bias
-        signals = raw.shift(1).fillna(0).astype(int)
+        signals = pd.Series(0, index=df.index)
+
+        # Long conditions
+        long_condition_trend = (
+            (close > trend_ema) &
+            (ema_f > ema_s) &
+            (macd_hist > 0) &
+            (rsi > self.rsi_oversold) &
+            vol_surge &
+            is_trending
+        )
+
+        long_condition_range = (
+            (rsi < rsi_os_range) &
+            (macd_hist > 0) &
+            vol_surge &
+            is_ranging
+        )
+
+        # Short conditions
+        short_condition_trend = (
+            (close < trend_ema) &
+            (ema_f < ema_s) &
+            (macd_hist < 0) &
+            (rsi < self.rsi_overbought) &
+            vol_surge &
+            is_trending
+        )
+
+        short_condition_range = (
+            (rsi > rsi_ob_range) &
+            (macd_hist < 0) &
+            vol_surge &
+            is_ranging
+        )
+
+        signals[long_condition_trend | long_condition_range] = 1
+        signals[short_condition_trend | short_condition_range] = -1
+
+        # Shift signals by 1 to avoid look-ahead bias
+        signals = signals.shift(1).fillna(0).astype(int)
+
         return signals
+
