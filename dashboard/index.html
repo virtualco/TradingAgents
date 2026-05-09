@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TradingAgents — Live Dashboard</title>
+  <style>
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --yellow:    #d29922;
+      --blue:      #58a6ff;
+      --purple:    #bc8cff;
+      --orange:    #ffa657;
+      --radius:    8px;
+      --font:      'SF Mono', 'Fira Code', 'Consolas', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--blue);
+      letter-spacing: 0.5px;
+    }
+
+    header .status-bar {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .badge {
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .badge-green  { background: rgba(63,185,80,0.15);  color: var(--green);  border: 1px solid rgba(63,185,80,0.3); }
+    .badge-red    { background: rgba(248,81,73,0.15);  color: var(--red);    border: 1px solid rgba(248,81,73,0.3); }
+    .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
+    .badge-blue   { background: rgba(88,166,255,0.15); color: var(--blue);   border: 1px solid rgba(88,166,255,0.3); }
+    .badge-purple { background: rgba(188,140,255,0.15);color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+    .badge-muted  { background: rgba(139,148,158,0.15);color: var(--muted);  border: 1px solid rgba(139,148,158,0.3); }
+
+    .main { padding: 20px 24px; display: grid; gap: 16px; }
+
+    /* KPI Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .kpi-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .kpi-card .label {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .kpi-card .value {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .kpi-card .sub {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    .positive { color: var(--green); }
+    .negative { color: var(--red); }
+    .neutral  { color: var(--text); }
+
+    /* Grid layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card-body { padding: 16px; }
+
+    /* Regime indicators */
+    .regime-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .regime-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    .regime-card .sym {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--blue);
+    }
+
+    .regime-card .regime-label {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .regime-card .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .regime-card .metric-item .m-label {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+    }
+
+    .regime-card .metric-item .m-val {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* Hurst bar */
+    .hurst-bar-wrap {
+      margin-top: 10px;
+    }
+
+    .hurst-bar-bg {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .hurst-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease;
+    }
+
+    .hurst-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 3px;
+    }
+
+    /* Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      color: var(--muted);
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 500;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(88,166,255,0.04); }
+
+    /* Risk panel */
+    .risk-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(48,54,61,0.5);
+    }
+
+    .risk-row:last-child { border-bottom: none; }
+
+    .risk-label { color: var(--muted); font-size: 12px; }
+    .risk-value { font-size: 13px; font-weight: 600; }
+
+    /* Progress bar */
+    .progress-wrap { margin-top: 4px; }
+    .progress-bg {
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.5s ease;
+    }
+
+    /* Last updated */
+    #last-updated {
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    /* Pulse dot */
+    .pulse-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+      margin-right: 6px;
+    }
+
+    @keyframes pulse {
+      0%   { opacity: 1; }
+      50%  { opacity: 0.3; }
+      100% { opacity: 1; }
+    }
+
+    .config-input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 6px 10px;
+      font-family: var(--font);
+      font-size: 12px;
+      width: 280px;
+    }
+
+    .config-input:focus { outline: none; border-color: var(--blue); }
+
+    .btn {
+      background: var(--blue);
+      color: var(--bg);
+      border: none;
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-family: var(--font);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    .btn:hover { opacity: 0.85; }
+
+    .error-banner {
+      background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      color: var(--red);
+      font-size: 12px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ TradingAgents — Live Dashboard</h1>
+  <div class="status-bar">
+    <span><span class="pulse-dot" id="pulse-dot"></span><span id="mode-badge" class="badge badge-yellow">CONNECTING</span></span>
+    <span id="last-updated">—</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Config row -->
+  <div class="card">
+    <div class="card-header">
+      Metrics Endpoint
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="endpoint-input" class="config-input"
+               value="http://localhost:8765/metrics"
+               placeholder="http://localhost:8765/metrics" />
+        <button class="btn" onclick="setEndpoint()">Connect</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="error-banner" class="error-banner"></div>
+
+  <!-- KPI Row -->
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="label">Daily P&L</div>
+      <div class="value" id="kpi-daily-pnl">—</div>
+      <div class="sub" id="kpi-daily-pnl-sub">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Open Positions</div>
+      <div class="value" id="kpi-positions">—</div>
+      <div class="sub" id="kpi-positions-sub">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Trades Today</div>
+      <div class="value" id="kpi-trades">—</div>
+      <div class="sub">executed today</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Risk Status</div>
+      <div class="value" id="kpi-risk">—</div>
+      <div class="sub" id="kpi-risk-sub">—</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Last Cycle</div>
+      <div class="value" id="kpi-cycle">—</div>
+      <div class="sub">UTC</div>
+    </div>
+  </div>
+
+  <!-- Regime + Risk -->
+  <div class="grid-2">
+
+    <!-- Regime Panel -->
+    <div class="card">
+      <div class="card-header">Regime Detection <span id="regime-ts" style="font-weight:400;text-transform:none">—</span></div>
+      <div class="card-body">
+        <div class="regime-grid" id="regime-grid">
+          <div class="regime-card" style="grid-column:1/-1;text-align:center;color:var(--muted)">Waiting for data...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk Panel -->
+    <div class="card">
+      <div class="card-header">Risk Manager</div>
+      <div class="card-body" id="risk-panel">
+        <div style="color:var(--muted);text-align:center">Waiting for data...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Positions + Trades -->
+  <div class="grid-2">
+
+    <!-- Open Positions -->
+    <div class="card">
+      <div class="card-header">Open Positions</div>
+      <div class="card-body" style="padding:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Side</th><th>Qty</th>
+              <th>Entry</th><th>Stop</th><th>Strategy</th>
+            </tr>
+          </thead>
+          <tbody id="positions-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No open positions</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Trades -->
+    <div class="card">
+      <div class="card-header">Recent Trades</div>
+      <div class="card-body" style="padding:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Side</th><th>Price</th>
+              <th>P&L</th><th>Regime</th><th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="trades-tbody">
+            <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No trades yet</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Signal Log -->
+  <div class="card">
+    <div class="card-header">Signal Log — Current Cycle</div>
+    <div class="card-body" style="padding:0">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th><th>Signal</th><th>Regime</th><th>Hurst</th>
+            <th>ADX</th><th>RSI</th><th>Price</th><th>Action</th><th>Strategy</th>
+          </tr>
+        </thead>
+        <tbody id="signals-tbody">
+          <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">Waiting for first cycle...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let ENDPOINT = 'http://localhost:8765/metrics';
+  let refreshInterval = null;
+
+  function setEndpoint() {
+    ENDPOINT = document.getElementById('endpoint-input').value.trim();
+    startPolling();
+  }
+
+  function fmt(n, dec=2) {
+    if (n === null || n === undefined || isNaN(n)) return '—';
+    return Number(n).toFixed(dec);
+  }
+
+  function fmtPnl(n) {
+    if (n === null || n === undefined) return '—';
+    const v = Number(n);
+    const cls = v > 0 ? 'positive' : v < 0 ? 'negative' : 'neutral';
+    const sign = v > 0 ? '+' : '';
+    return `<span class="${cls}">${sign}${v.toFixed(4)} USDT</span>`;
+  }
+
+  function regimeBadge(r) {
+    if (!r) return '<span class="badge badge-muted">—</span>';
+    const map = {
+      TRENDING:   'badge-green',
+      RANGING:    'badge-purple',
+      TRANSITION: 'badge-yellow',
+    };
+    return `<span class="badge ${map[r] || 'badge-muted'}">${r}</span>`;
+  }
+
+  function signalBadge(s) {
+    if (s === 1)  return '<span class="badge badge-green">LONG</span>';
+    if (s === -1) return '<span class="badge badge-red">SHORT</span>';
+    return '<span class="badge badge-muted">FLAT</span>';
+  }
+
+  function actionBadge(a) {
+    if (!a) return '—';
+    const map = {
+      OPEN: 'badge-green', CLOSE: 'badge-red',
+      HOLD: 'badge-blue', FLAT: 'badge-muted',
+      BLOCKED: 'badge-yellow', SKIP: 'badge-yellow',
+      STOP_HIT: 'badge-red', REGIME_CHANGE: 'badge-yellow',
+    };
+    return `<span class="badge ${map[a] || 'badge-muted'}">${a}</span>`;
+  }
+
+  function hurstColor(h) {
+    if (h > 0.55) return 'var(--green)';
+    if (h < 0.45) return 'var(--purple)';
+    return 'var(--yellow)';
+  }
+
+  function hurstLabel(h) {
+    if (h > 0.55) return 'Trending';
+    if (h < 0.45) return 'Mean-Rev';
+    return 'Random';
+  }
+
+  function render(data) {
+    const err = document.getElementById('error-banner');
+    err.style.display = 'none';
+
+    // Mode badge
+    const modeBadge = document.getElementById('mode-badge');
+    const riskState = data.risk_state || {};
+    const isTestnet = (data.reports || []).length > 0;
+    modeBadge.textContent = riskState.kill_switch_active ? 'KILLED' :
+                            riskState.circuit_breaker_tripped ? 'HALTED' : 'LIVE';
+    modeBadge.className = 'badge ' + (
+      riskState.kill_switch_active || riskState.circuit_breaker_tripped
+        ? 'badge-red' : 'badge-green'
+    );
+
+    document.getElementById('last-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString();
+
+    // KPIs
+    const daily = data.daily_stats || {};
+    const pnl = (daily.realized_pnl || 0) + (daily.unrealized_pnl || 0);
+    const pnlEl = document.getElementById('kpi-daily-pnl');
+    pnlEl.innerHTML = (pnl >= 0 ? '+' : '') + fmt(pnl, 4) + ' USDT';
+    pnlEl.className = 'value ' + (pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : 'neutral');
+    document.getElementById('kpi-daily-pnl-sub').textContent =
+      `Realized: ${fmt(daily.realized_pnl, 4)} | Unreal: ${fmt(daily.unrealized_pnl, 4)}`;
+
+    const reports = data.reports || [];
+    const openPos = reports.filter(r => r.action === 'HOLD' || r.action === 'OPEN').length;
+    document.getElementById('kpi-positions').textContent = openPos;
+    document.getElementById('kpi-positions-sub').textContent =
+      `of ${(data.symbols || []).length} symbols`;
+
+    document.getElementById('kpi-trades').textContent = daily.n_trades || 0;
+
+    const riskOk = !riskState.kill_switch_active && !riskState.circuit_breaker_tripped;
+    const riskEl = document.getElementById('kpi-risk');
+    riskEl.textContent = riskOk ? 'OK' : 'HALTED';
+    riskEl.className = 'value ' + (riskOk ? 'positive' : 'negative');
+    document.getElementById('kpi-risk-sub').textContent =
+      `DD: ${fmt(riskState.daily_drawdown_pct, 2)}% / ${fmt(riskState.max_daily_drawdown_pct, 2)}%`;
+
+    const cycleTime = data.cycle_time ? new Date(data.cycle_time).toLocaleTimeString() : '—';
+    document.getElementById('kpi-cycle').textContent = cycleTime;
+
+    // Regime grid
+    const regimeGrid = document.getElementById('regime-grid');
+    if (reports.length > 0) {
+      regimeGrid.innerHTML = reports.map(r => {
+        const h = r.hurst || 0.5;
+        const hPct = Math.round(h * 100);
+        return `
+          <div class="regime-card">
+            <div class="sym">${r.symbol || '—'}</div>
+            <div class="regime-label">${regimeBadge(r.regime)}</div>
+            <div class="metrics">
+              <div class="metric-item">
+                <div class="m-label">Hurst</div>
+                <div class="m-val" style="color:${hurstColor(h)}">${fmt(h, 3)} <small style="font-size:10px;color:var(--muted)">${hurstLabel(h)}</small></div>
+              </div>
+              <div class="metric-item">
+                <div class="m-label">ADX</div>
+                <div class="m-val">${fmt(r.adx, 1)}</div>
+              </div>
+              <div class="metric-item">
+                <div class="m-label">RSI</div>
+                <div class="m-val" style="color:${r.rsi < 35 ? 'var(--green)' : r.rsi > 65 ? 'var(--red)' : 'var(--text)'}">${fmt(r.rsi, 1)}</div>
+              </div>
+              <div class="metric-item">
+                <div class="m-label">Strategy</div>
+                <div class="m-val" style="font-size:11px">${r.sub_strategy || '—'}</div>
+              </div>
+            </div>
+            <div class="hurst-bar-wrap">
+              <div class="hurst-bar-bg">
+                <div class="hurst-bar-fill" style="width:${hPct}%;background:${hurstColor(h)}"></div>
+              </div>
+              <div class="hurst-labels"><span>0 (Rev)</span><span>0.5 (Rand)</span><span>1 (Trend)</span></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Risk panel
+    const riskPanel = document.getElementById('risk-panel');
+    const ddPct = riskState.daily_drawdown_pct || 0;
+    const maxDd = riskState.max_daily_drawdown_pct || 5;
+    const ddBarPct = Math.min(Math.round((ddPct / maxDd) * 100), 100);
+    const ddColor = ddPct > maxDd * 0.8 ? 'var(--red)' : ddPct > maxDd * 0.5 ? 'var(--yellow)' : 'var(--green)';
+    riskPanel.innerHTML = `
+      <div class="risk-row">
+        <span class="risk-label">Kill Switch</span>
+        <span class="risk-value">${riskState.kill_switch_active
+          ? '<span class="badge badge-red">ACTIVE</span>'
+          : '<span class="badge badge-green">OFF</span>'}</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-label">Circuit Breaker</span>
+        <span class="risk-value">${riskState.circuit_breaker_tripped
+          ? '<span class="badge badge-red">TRIPPED</span>'
+          : '<span class="badge badge-green">OK</span>'}</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-label">Daily Drawdown</span>
+        <span class="risk-value" style="color:${ddColor}">${fmt(ddPct, 2)}% / ${fmt(maxDd, 2)}%</span>
+      </div>
+      <div class="progress-wrap" style="margin-bottom:12px">
+        <div class="progress-bg">
+          <div class="progress-fill" style="width:${ddBarPct}%;background:${ddColor}"></div>
+        </div>
+      </div>
+      <div class="risk-row">
+        <span class="risk-label">Open Positions</span>
+        <span class="risk-value">${riskState.open_positions || 0} / ${riskState.max_positions || '—'}</span>
+      </div>
+      <div class="risk-row">
+        <span class="risk-label">Realized P&L Today</span>
+        <span class="risk-value">${fmtPnl(riskState.realized_pnl_today)}</span>
+      </div>
+    `;
+
+    // Open positions table
+    const posTbody = document.getElementById('positions-tbody');
+    const openReports = reports.filter(r => r.side && (r.action === 'HOLD' || r.action === 'OPEN'));
+    if (openReports.length > 0) {
+      posTbody.innerHTML = openReports.map(r => `
+        <tr>
+          <td><strong style="color:var(--blue)">${r.symbol}</strong></td>
+          <td>${r.side === 'LONG'
+            ? '<span class="badge badge-green">LONG</span>'
+            : '<span class="badge badge-red">SHORT</span>'}</td>
+          <td>${fmt(r.qty, 4)}</td>
+          <td>${fmt(r.price, 2)}</td>
+          <td style="color:var(--red)">${fmt(r.stop_loss, 2)}</td>
+          <td><span class="badge badge-muted">${r.strategy || '—'}</span></td>
+        </tr>
+      `).join('');
+    } else {
+      posTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No open positions</td></tr>';
+    }
+
+    // Recent trades table
+    const tradesTbody = document.getElementById('trades-tbody');
+    const trades = data.recent_trades || [];
+    if (trades.length > 0) {
+      tradesTbody.innerHTML = trades.slice(0, 15).map(t => {
+        const ts = t.timestamp ? new Date(t.timestamp).toLocaleTimeString() : '—';
+        return `
+          <tr>
+            <td><strong style="color:var(--blue)">${t.symbol}</strong></td>
+            <td>${t.side === 'LONG'
+              ? '<span class="badge badge-green">LONG</span>'
+              : '<span class="badge badge-red">SHORT</span>'}</td>
+            <td>${fmt(t.price, 2)}</td>
+            <td>${fmtPnl(t.pnl)}</td>
+            <td>${regimeBadge(t.regime)}</td>
+            <td style="color:var(--muted)">${ts}</td>
+          </tr>
+        `;
+      }).join('');
+    } else {
+      tradesTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px">No trades yet</td></tr>';
+    }
+
+    // Signal log
+    const sigTbody = document.getElementById('signals-tbody');
+    if (reports.length > 0) {
+      sigTbody.innerHTML = reports.map(r => `
+        <tr>
+          <td><strong style="color:var(--blue)">${r.symbol || '—'}</strong></td>
+          <td>${signalBadge(r.signal)}</td>
+          <td>${regimeBadge(r.regime)}</td>
+          <td style="color:${hurstColor(r.hurst || 0.5)}">${fmt(r.hurst, 3)}</td>
+          <td>${fmt(r.adx, 1)}</td>
+          <td style="color:${(r.rsi||50) < 35 ? 'var(--green)' : (r.rsi||50) > 65 ? 'var(--red)' : 'var(--text)'}">${fmt(r.rsi, 1)}</td>
+          <td>${fmt(r.close_price, 2)}</td>
+          <td>${actionBadge(r.action)}</td>
+          <td><span class="badge badge-muted">${r.sub_strategy || '—'}</span></td>
+        </tr>
+      `).join('');
+    }
+  }
+
+  async function fetchMetrics() {
+    try {
+      const resp = await fetch(ENDPOINT, { signal: AbortSignal.timeout(5000) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      render(data);
+    } catch (e) {
+      const err = document.getElementById('error-banner');
+      err.textContent = `Cannot reach metrics endpoint: ${e.message}. Make sure live_trader.py is running.`;
+      err.style.display = 'block';
+      document.getElementById('mode-badge').textContent = 'OFFLINE';
+      document.getElementById('mode-badge').className = 'badge badge-muted';
+    }
+  }
+
+  function startPolling() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    fetchMetrics();
+    refreshInterval = setInterval(fetchMetrics, 10000);  // refresh every 10s
+  }
+
+  startPolling();
+</script>
+</body>
+</html>
