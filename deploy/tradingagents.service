@@ -1,0 +1,22 @@
+[Unit]
+Description=TradingAgents Live Crypto Trader
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/TradingAgents
+EnvironmentFile=/home/ubuntu/TradingAgents/.env.bybit
+ExecStart=/usr/bin/python3 scripts/live_trader.py
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=tradingagents
+
+# Safety: kill if it hangs for more than 5 minutes
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target
