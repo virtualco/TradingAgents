@@ -1,0 +1,23 @@
+{
+  "observation_id": "d2189a1c-6886-42ed-bfda-174bc707026f",
+  "trade_date": "2026-05-11",
+  "nav": 100000.0,
+  "cash": 100000.0,
+  "gross_long": 0.0,
+  "gross_short": 0.0,
+  "daily_pnl": 0.0,
+  "total_pnl": 0.0,
+  "drawdown_pct": 0.0,
+  "signals_received": 2,
+  "orders_submitted": 2,
+  "orders_approved": 2,
+  "orders_rejected": 0,
+  "orders_filled": 2,
+  "kill_switch_active": false,
+  "circuit_breaker_triggered": false,
+  "reconciliation_clean": true,
+  "reconciliation_breaks": 0,
+  "positions_count": 0,
+  "notes": "",
+  "created_at": "2026-05-11T13:39:12.920767"
+}
