@@ -218,3 +218,10 @@ __marimo__/
 # Cache
 **/data_cache/
 results.tsv
+
+# Manus exports / browser-saved pages
+*.manus.html
+*manus*.html
+
+# Local report dumps
+*.local-report.*
