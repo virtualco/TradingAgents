@@ -20,9 +20,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
+import math
 import numpy as np
 import pandas as pd
-
 logger = logging.getLogger(__name__)
 
 
@@ -170,16 +170,18 @@ class TechnicalStrategyRules:
             return None
 
         gap_pct = (sma20 - sma50) / sma50
+        # tanh scaling: 1% gap -> 0.20, 2% gap -> 0.38, 3% gap -> 0.54, 5%+ -> ~0.60
+        scaled = round(min(0.6, math.tanh(abs(gap_pct) * 20) * 0.6), 3)
         # Golden cross: SMA20 just crossed above SMA50
         if prev_sma20 <= prev_sma50 and sma20 > sma50:
             score, rationale = 0.8, f"Golden cross: SMA20 ({sma20:.2f}) crossed above SMA50 ({sma50:.2f})"
         elif sma20 > sma50:
-            score = min(0.6, gap_pct * 5)  # Scale by gap size
+            score = scaled
             rationale = f"Bullish: SMA20 ({sma20:.2f}) > SMA50 ({sma50:.2f}), gap {gap_pct:.1%}"
         elif prev_sma20 >= prev_sma50 and sma20 < sma50:
             score, rationale = -0.8, f"Death cross: SMA20 ({sma20:.2f}) crossed below SMA50 ({sma50:.2f})"
         else:
-            score = max(-0.6, gap_pct * 5)
+            score = -scaled
             rationale = f"Bearish: SMA20 ({sma20:.2f}) < SMA50 ({sma50:.2f}), gap {gap_pct:.1%}"
 
         return RuleSignal(
@@ -218,6 +220,14 @@ class TechnicalStrategyRules:
         elif rsi_val > 60:
             score = -0.3
             rationale = f"RSI approaching overbought at {rsi_val:.1f}"
+        elif rsi_val > 50:
+            # Weak bullish momentum: linear 0.0 at 50 → 0.15 at 60
+            score = round((rsi_val - 50) / 10 * 0.15, 3)
+            rationale = f"RSI mild bullish momentum at {rsi_val:.1f}"
+        elif rsi_val < 50:
+            # Weak bearish momentum: linear 0.0 at 50 → -0.15 at 40
+            score = round((rsi_val - 50) / 10 * 0.15, 3)
+            rationale = f"RSI mild bearish momentum at {rsi_val:.1f}"
         else:
             score = 0.0
             rationale = f"RSI neutral at {rsi_val:.1f}"
@@ -267,7 +277,7 @@ class TechnicalStrategyRules:
             role=self.ROLE,
             signal=_score_to_signal(score),
             score=round(score, 3),
-            confidence=0.60,
+            confidence=0.75,  # MACD is a reliable momentum indicator
             rationale=rationale,
             data_points={"macd_histogram": round(hist_now, 4)},
         )
@@ -291,7 +301,10 @@ class TechnicalStrategyRules:
 
         band_width = upper_val - lower_val
         position = (price - lower_val) / band_width if band_width > 0 else 0.5
-
+        # Trend-aware Bollinger: detect if price is in an uptrend (5-day slope > 0)
+        trend_slope = (close.iloc[-1] - close.iloc[-5]) / close.iloc[-5] if len(close) >= 5 else 0.0
+        in_uptrend = trend_slope > 0.005   # >0.5% gain over 5 days
+        in_downtrend = trend_slope < -0.005
         if position < 0.1:
             score = 0.7
             rationale = f"Price near lower Bollinger Band ({price:.2f} vs lower {lower_val:.2f})"
@@ -299,11 +312,22 @@ class TechnicalStrategyRules:
             score = 0.3
             rationale = f"Price in lower Bollinger zone (position: {position:.0%})"
         elif position > 0.9:
-            score = -0.7
-            rationale = f"Price near upper Bollinger Band ({price:.2f} vs upper {upper_val:.2f})"
+            if in_uptrend:
+                score = 0.5   # Upper band in uptrend = momentum confirmation
+                rationale = f"Price riding upper Bollinger Band in uptrend ({price:.2f})"
+            else:
+                score = -0.7
+                rationale = f"Price near upper Bollinger Band ({price:.2f} vs upper {upper_val:.2f})"
         elif position > 0.7:
-            score = -0.3
-            rationale = f"Price in upper Bollinger zone (position: {position:.0%})"
+            if in_uptrend:
+                score = 0.2   # Upper zone in uptrend = mild bullish
+                rationale = f"Price in upper Bollinger zone with uptrend (position: {position:.0%})"
+            elif in_downtrend:
+                score = -0.5  # Upper zone in downtrend = bearish divergence
+                rationale = f"Price in upper Bollinger zone despite downtrend (position: {position:.0%})"
+            else:
+                score = -0.3
+                rationale = f"Price in upper Bollinger zone (position: {position:.0%})"
         else:
             score = 0.0
             rationale = f"Price mid-Bollinger Band (position: {position:.0%})"
@@ -313,7 +337,7 @@ class TechnicalStrategyRules:
             role=self.ROLE,
             signal=_score_to_signal(score),
             score=round(score, 3),
-            confidence=0.55,
+            confidence=0.65,  # Bollinger is a reliable volatility/trend indicator
             rationale=rationale,
             data_points={"bb_position": round(position, 3), "price": round(price, 2)},
         )
