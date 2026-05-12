@@ -7,6 +7,7 @@ import functools
 from langchain_core.messages import AIMessage
 
 from tradingagents.agents.schemas import TraderProposal, render_trader_proposal
+from tradingagents.agents.thesis_validator import enforce_trader_proposal
 from tradingagents.agents.utils.agent_utils import build_instrument_context
 from tradingagents.agents.utils.structured import (
     bind_structured,
@@ -51,6 +52,9 @@ def create_trader(llm):
             render_trader_proposal,
             "Trader",
         )
+
+        # Enforce schema validation at output boundary
+        enforce_trader_proposal(trader_plan)
 
         return {
             "messages": [AIMessage(content=trader_plan)],

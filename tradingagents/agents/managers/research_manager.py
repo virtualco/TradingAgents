@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from tradingagents.agents.schemas import ResearchPlan, render_research_plan
+from tradingagents.agents.thesis_validator import enforce_research_plan
 from tradingagents.agents.utils.agent_utils import build_instrument_context
 from tradingagents.agents.utils.structured import (
     bind_structured,
@@ -46,6 +47,9 @@ Commit to a clear stance whenever the debate's strongest arguments warrant one; 
             render_research_plan,
             "Research Manager",
         )
+
+        # Enforce schema validation at output boundary
+        enforce_research_plan(investment_plan)
 
         new_investment_debate_state = {
             "judge_decision": investment_plan,

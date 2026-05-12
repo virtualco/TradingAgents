@@ -11,6 +11,7 @@ back gracefully to free-text generation.
 from __future__ import annotations
 
 from tradingagents.agents.schemas import PortfolioDecision, render_pm_decision
+from tradingagents.agents.thesis_validator import enforce_portfolio_decision
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     get_language_instruction,
@@ -70,6 +71,9 @@ Be decisive and ground every conclusion in specific evidence from the analysts.{
             render_pm_decision,
             "Portfolio Manager",
         )
+
+        # Enforce schema validation at output boundary
+        enforce_portfolio_decision(final_trade_decision)
 
         new_risk_debate_state = {
             "judge_decision": final_trade_decision,
