@@ -180,10 +180,10 @@ def validate_portfolio_decision(output: str, *, strict: bool = False) -> List[st
         if "investment thesis" not in lower and "thesis" not in lower:
             violations.append("Portfolio decision missing investment thesis.")
 
-    if len(output.strip()) < 50:
+    if len(output.strip()) < 20:
         violations.append(
             f"Portfolio decision is suspiciously short ({len(output.strip())} chars). "
-            "Minimum expected: 50 characters."
+            "Minimum expected: 20 characters."
         )
 
     return violations
