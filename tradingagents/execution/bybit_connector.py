@@ -212,10 +212,15 @@ class BybitConnector:
         coins = account.get("coin", [])
         coin_data = next((c for c in coins if c.get("coin") == coin), {})
 
+        def _sf(val, default=0.0):
+            try:
+                return float(val) if val not in (None, '', 'null') else default
+            except (TypeError, ValueError):
+                return default
         return Balance(
-            total_equity=float(account.get("totalEquity", 0)),
-            available_balance=float(coin_data.get("availableToWithdraw", 0)),
-            wallet_balance=float(coin_data.get("walletBalance", 0)),
+            total_equity=_sf(account.get("totalEquity", 0)),
+            available_balance=_sf(coin_data.get("availableToWithdraw", 0)),
+            wallet_balance=_sf(coin_data.get("walletBalance", 0)),
             currency=coin,
         )
 
