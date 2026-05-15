@@ -87,24 +87,24 @@ def _hurst_fast(close: np.ndarray, window: int = 96) -> np.ndarray:
 BTC_CONFIG = {
     'atr_period':     14,
     'expansion_mult': 3.0,
-    'vol_mult':       1.5,
+    'vol_mult':       1.2,       # grid-search optimised (was 1.5)
     'max_hold_bars':  12,
     'order_type':     'Limit',   # MUST be limit for BTC — fee sensitive
-    'stop_mult':      2.0,
+    'stop_mult':      1.5,       # grid-search optimised (was 2.0)
     'tp_mult':        4.0,
 }
 
 ETH_CONFIG = {
-    'donchian_period':  25,
-    'adx_min':          18,
-    'adx_trend':        22,
-    'vol_mult':         2.0,
-    'hurst_min':        0.48,
-    'vol_atr_max':      0.03,
-    'max_hold_bars':    48,
+    'donchian_period':  28,       # grid-search optimised (was 25)
+    'adx_min':          12,       # grid-search optimised (was 18)
+    'adx_trend':        24,       # grid-search optimised (was 22)
+    'vol_mult':         1.8,      # grid-search optimised (was 2.0)
+    'hurst_min':        0.42,     # grid-search optimised (was 0.48)
+    'vol_atr_max':      0.04,     # grid-search optimised (was 0.03)
+    'max_hold_bars':    60,       # grid-search optimised (was 48)
     'order_type':       'Market',
-    'stop_mult':        2.5,
-    'tp_mult':          5.0,
+    'stop_mult':        1.2,      # grid-search optimised (was 2.5)
+    'tp_mult':          6.0,      # grid-search optimised (was 5.0)
 }
 
 ASSET_CONFIG = {

@@ -1,0 +1,12 @@
+{
+  "system_halted": false,
+  "halt_level": "none",
+  "halt_reason": "",
+  "halted_at": null,
+  "halted_tickers": [],
+  "consecutive_losses": 0,
+  "schema_failures_today": 0,
+  "signals_last_hour": [],
+  "halt_history": [],
+  "circuit_breaker_resets": {}
+}

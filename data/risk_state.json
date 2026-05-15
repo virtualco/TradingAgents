@@ -1,0 +1,23 @@
+{
+  "date": "2026-05-09",
+  "starting_equity": 10000,
+  "current_equity": 10000,
+  "daily_pnl": 0.0,
+  "daily_pnl_pct": 0.0,
+  "weekly_pnl": 0.0,
+  "daily_trade_count": 1,
+  "open_positions": {
+    "BTCUSDT": {
+      "side": "Buy",
+      "qty": 0.033,
+      "entry_price": 81000,
+      "notional": 2673.0,
+      "opened_at": "2026-05-09T05:52:06.683591+00:00"
+    }
+  },
+  "last_trade_time": {
+    "BTCUSDT": "2026-05-09T05:52:06.683627+00:00"
+  },
+  "circuit_breaker_active": false,
+  "circuit_breaker_reason": ""
+}

@@ -1,0 +1,23 @@
+{
+  "observation_id": "cc807561-fab4-4567-aeb5-2ee3d2666c03",
+  "trade_date": "2026-05-08",
+  "nav": 99992.21878784179,
+  "cash": 96915.71884887695,
+  "gross_long": 3076.4999389648438,
+  "gross_short": 0.0,
+  "daily_pnl": -7.78121215821011,
+  "total_pnl": -7.78121215821011,
+  "drawdown_pct": 7.78121215821011e-05,
+  "signals_received": 1,
+  "orders_submitted": 1,
+  "orders_approved": 0,
+  "orders_rejected": 1,
+  "orders_filled": 0,
+  "kill_switch_active": false,
+  "circuit_breaker_triggered": false,
+  "reconciliation_clean": true,
+  "reconciliation_breaks": 0,
+  "positions_count": 1,
+  "notes": "",
+  "created_at": "2026-05-08T13:38:50.701767"
+}
