@@ -19,8 +19,8 @@ import time
 
 FEE = 0.001
 INITIAL_CAPITAL = 100_000.0
-BTC_WEIGHT = 0.5
-ETH_WEIGHT = 0.5
+BTC_WEIGHT = 0.6
+ETH_WEIGHT = 0.4
 WARMUP = 200
 
 def load_data(symbol: str) -> pd.DataFrame:
