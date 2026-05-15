@@ -85,26 +85,27 @@ def _hurst_fast(close: np.ndarray, window: int = 96) -> np.ndarray:
 # ── Strategy Parameters (OOS-validated) ──────────────────────────────────────
 
 BTC_CONFIG = {
-    'atr_period':     14,
-    'expansion_mult': 3.0,
-    'vol_mult':       1.2,       # grid-search optimised (was 1.5)
+    'atr_period':     15,        # bayesian-optimised (was 14)
+    'expansion_mult': 3.7,       # bayesian-optimised (was 3.0)
+    'vol_mult':       2.5,       # bayesian-optimised (was 1.2)
     'max_hold_bars':  12,
     'order_type':     'Limit',   # MUST be limit for BTC — fee sensitive
-    'stop_mult':      1.5,       # grid-search optimised (was 2.0)
-    'tp_mult':        4.0,
+    'stop_mult':      1.5,
+    'tp_mult':        8.0,       # bayesian-optimised (was 4.0)
 }
 
 ETH_CONFIG = {
-    'donchian_period':  28,       # grid-search optimised (was 25)
-    'adx_min':          12,       # grid-search optimised (was 18)
-    'adx_trend':        24,       # grid-search optimised (was 22)
-    'vol_mult':         1.8,      # grid-search optimised (was 2.0)
-    'hurst_min':        0.42,     # grid-search optimised (was 0.48)
-    'vol_atr_max':      0.04,     # grid-search optimised (was 0.03)
-    'max_hold_bars':    60,       # grid-search optimised (was 48)
+    'donchian_period':  32,       # bayesian-optimised (was 28)
+    'adx_min':          21,       # bayesian-optimised (was 12)
+    'adx_trend':        22,       # bayesian-optimised (was 24)
+    'vol_mult':         2.0,      # bayesian-optimised (was 1.8)
+    'hurst_min':        0.52,     # bayesian-optimised (was 0.42)
+    'vol_atr_max':      0.08,     # bayesian-optimised (was 0.04)
+    'max_hold_bars':    90,       # bayesian-optimised (was 60)
     'order_type':       'Market',
-    'stop_mult':        1.2,      # grid-search optimised (was 2.5)
-    'tp_mult':          6.0,      # grid-search optimised (was 5.0)
+    'stop_mult':        3.0,      # bayesian-optimised (was 1.2)
+    'tp_mult':          9.0,      # bayesian-optimised (was 6.0)
+    'atr_donchian_factor': 1.0,   # bayesian-optimised (new — adaptive Donchian)
 }
 
 ASSET_CONFIG = {
