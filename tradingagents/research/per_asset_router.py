@@ -91,32 +91,32 @@ def _hurst_fast(close: np.ndarray, window: int = 96) -> np.ndarray:
 # STRATEGY PARAMETERS — Per-Asset Configs
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── BTC: ATR Expansion Breakout (Bayesian-optimised, Sharpe 1.18) ────────────
+# ── BTC: ATR Expansion Breakout (Bayesian-optimised v2, Sharpe 1.17) ─────────
 BTC_CONFIG = {
     'strategy':       'ATR_EXPANSION',
-    'atr_period':     15,
-    'expansion_mult': 3.7,
-    'vol_mult':       2.5,
-    'max_hold_bars':  12,
+    'atr_period':     20,
+    'expansion_mult': 3.8,
+    'vol_mult':       1.2,
+    'max_hold_bars':  14,
     'order_type':     'Limit',
-    'stop_mult':      1.5,
-    'tp_mult':        8.0,
+    'stop_mult':      3.7,
+    'tp_mult':        5.0,
 }
 
-# ── ETH: Donchian Momentum (Bayesian-optimised, Sharpe 1.16) ────────────────
+# ── ETH: Donchian Momentum (Bayesian-optimised v2, Sharpe 1.43) ─────────────
 ETH_CONFIG = {
     'strategy':          'DONCHIAN_MOMENTUM',
-    'donchian_period':   32,
-    'adx_min':           21,
-    'adx_trend':         22,
-    'vol_mult':          2.0,
-    'hurst_min':         0.52,
-    'vol_atr_max':       0.08,
-    'max_hold_bars':     90,
+    'donchian_period':   45,
+    'adx_min':           11,
+    'adx_trend':         21,
+    'vol_mult':          3.9,
+    'hurst_min':         0.38,
+    'vol_atr_max':       0.02,
+    'max_hold_bars':     42,
     'order_type':        'Market',
-    'stop_mult':         3.0,
-    'tp_mult':           9.0,
-    'atr_donchian_factor': 1.0,
+    'stop_mult':         2.1,
+    'tp_mult':           5.0,
+    'atr_donchian_factor': 0.5,
 }
 
 # ── SOL: ATR Expansion Breakout (Bayesian-optimised, Sharpe 1.24) ────────────
@@ -203,8 +203,56 @@ LINK_CONFIG = {
     'atr_donchian_factor': 0.5,
 }
 
-# ── Master Config Map ────────────────────────────────────────────────────────
+# ── SPY: Donchian Momentum (daily, Bayesian-optimised, Sharpe 1.14) ────────
+SPY_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   18,
+    'adx_min':           28,
+    'adx_trend':         20,
+    'vol_mult':          1.2,
+    'hurst_min':         0.36,
+    'vol_atr_max':       0.04,
+    'max_hold_bars':     72,
+    'order_type':        'Market',
+    'stop_mult':         4.0,
+    'tp_mult':           8.5,
+    'atr_donchian_factor': 2.0,
+    'timeframe':         '1d',
+}
+
+# ── QQQ: ATR Expansion (daily, Bayesian-optimised, Sharpe 1.50) ───────────
+QQQ_CONFIG = {
+    'strategy':       'ATR_EXPANSION',
+    'atr_period':     21,
+    'expansion_mult': 1.5,
+    'vol_mult':       1.5,
+    'max_hold_bars':  26,
+    'order_type':     'Market',
+    'stop_mult':      2.2,
+    'tp_mult':        3.0,
+    'timeframe':      '1d',
+}
+
+# ── GLD: Donchian Momentum (daily, Bayesian-optimised, Sharpe 1.79) ────────
+GLD_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   16,
+    'adx_min':           22,
+    'adx_trend':         18,
+    'vol_mult':          1.1,
+    'hurst_min':         0.39,
+    'vol_atr_max':       0.04,
+    'max_hold_bars':     48,
+    'order_type':        'Market',
+    'stop_mult':         4.0,
+    'tp_mult':           2.5,
+    'atr_donchian_factor': 1.5,
+    'timeframe':         '1d',
+}
+
+# ── Master Config Map ────────────────────────────────────────────────────────────────
 ASSET_CONFIG = {
+    # Crypto (hourly)
     'BTCUSDT':  BTC_CONFIG,
     'ETHUSDT':  ETH_CONFIG,
     'SOLUSDT':  SOL_CONFIG,
@@ -213,21 +261,26 @@ ASSET_CONFIG = {
     'BNBUSDT':  BNB_CONFIG,
     'XRPUSDT':  XRP_CONFIG,
     'LINKUSDT': LINK_CONFIG,
+    # Traditional (daily)
+    'SPY':      SPY_CONFIG,
+    'QQQ':      QQQ_CONFIG,
+    'GLD':      GLD_CONFIG,
 }
 
-# Data file mapping (symbol → parquet filename prefix)
+# Data file mapping (symbol → parquet filename prefix + timeframe)
 DATA_FILE_MAP = {
-    'BTCUSDT':  'BTC_USD',
-    'ETHUSDT':  'ETH_USD',
-    'SOLUSDT':  'SOL_USD',
-    'AVAXUSDT': 'AVAX_USD',
-    'DOGEUSDT': 'DOGE_USD',
-    'BNBUSDT':  'BNB_USD',
-    'XRPUSDT':  'XRP_USD',
-    'LINKUSDT': 'LINK_USD',
+    'BTCUSDT':  ('BTC_USD', '1h'),
+    'ETHUSDT':  ('ETH_USD', '1h'),
+    'SOLUSDT':  ('SOL_USD', '1h'),
+    'AVAXUSDT': ('AVAX_USD', '1h'),
+    'DOGEUSDT': ('DOGE_USD', '1h'),
+    'BNBUSDT':  ('BNB_USD', '1h'),
+    'XRPUSDT':  ('XRP_USD', '1h'),
+    'LINKUSDT': ('LINK_USD', '1h'),
+    'SPY':      ('SPY', '1d'),
+    'QQQ':      ('QQQ', '1d'),
+    'GLD':      ('GLD', '1d'),
 }
-
-
 # ── Signal Generators ─────────────────────────────────────────────────────────
 
 def _atr_expansion_signal(df: pd.DataFrame, cfg: dict, symbol: str) -> dict:

@@ -30,8 +30,12 @@ DATA_DIR = '/home/ubuntu/TradingAgents/data/historical'
 
 def load_data(symbol: str) -> pd.DataFrame:
     from tradingagents.research.per_asset_router import DATA_FILE_MAP
-    label = DATA_FILE_MAP.get(symbol, symbol.replace('USDT', '_USD'))
-    path = f'{DATA_DIR}/{label}_1h_2022-01-01_2026-01-01.parquet'
+    entry = DATA_FILE_MAP.get(symbol, symbol.replace('USDT', '_USD'))
+    if isinstance(entry, tuple):
+        label, tf = entry
+    else:
+        label, tf = entry, '1h'
+    path = f'{DATA_DIR}/{label}_{tf}_2022-01-01_2026-01-01.parquet'
     df = pd.read_parquet(path)
     if df.index.tz is not None:
         df.index = df.index.tz_localize(None)
@@ -100,7 +104,7 @@ def _rolling_mean(arr, window):
 
 # ── Entry Signal Generators (identical logic to eval_per_asset_oos.py) ───────
 
-def generate_atr_expansion_entries(df, cfg):
+def generate_atr_expansion_entries(df, cfg, warmup=WARMUP):
     """ATR Expansion: uses midpoint for bull/bear (matching proven harness)."""
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
@@ -126,11 +130,11 @@ def generate_atr_expansion_entries(df, cfg):
     entries = np.zeros(n)
     entries[(expansion & vol_surge & bar_bull)] = 1
     entries[(expansion & vol_surge & bar_bear)] = -1
-    entries[:WARMUP] = 0
+    entries[:warmup] = 0
     return entries
 
 
-def generate_donchian_entries(df, cfg):
+def generate_donchian_entries(df, cfg, warmup=WARMUP):
     """Donchian Momentum: identical to eval_per_asset_oos.py (vectorised)."""
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
@@ -192,7 +196,7 @@ def generate_donchian_entries(df, cfg):
     entries = np.zeros(n)
     entries[long_sig] = 1
     entries[short_sig] = -1
-    entries[:WARMUP] = 0
+    entries[:warmup] = 0
     return entries
 
 
@@ -240,10 +244,10 @@ def simulate_positions(entries, close, high, low, atr, stop_mult, tp_mult, max_h
     return pnl, trades
 
 
-def compute_metrics(pnl, trades, capital):
+def compute_metrics(pnl, trades, capital, bars_per_year=8760):
     equity = capital * np.cumprod(1 + pnl)
     total_return = (equity[-1] / capital - 1) * 100
-    sharpe = float(np.mean(pnl) / np.std(pnl) * np.sqrt(8760)) if np.std(pnl) > 0 else 0
+    sharpe = float(np.mean(pnl) / np.std(pnl) * np.sqrt(bars_per_year)) if np.std(pnl) > 0 else 0
     peak = np.maximum.accumulate(equity)
     max_dd = float(np.max((peak - equity) / peak) * 100)
     n_trades = len(trades)
@@ -274,6 +278,28 @@ def compute_risk_parity_weights(pnl_dict: dict, lookback: int = 720) -> dict:
 
 # ── Single Asset Eval (exported for Bayesian optimiser) ──────────────────────
 
+def get_bars_per_year(symbol: str, cfg: dict = None) -> int:
+    """Return annualisation factor: 8760 for hourly, 252 for daily."""
+    if cfg and cfg.get('timeframe') == '1d':
+        return 252
+    from tradingagents.research.per_asset_router import DATA_FILE_MAP
+    entry = DATA_FILE_MAP.get(symbol)
+    if isinstance(entry, tuple) and entry[1] == '1d':
+        return 252
+    return 8760
+
+
+def get_warmup(symbol: str, cfg: dict = None) -> int:
+    """Return warmup period: 200 for hourly, 50 for daily."""
+    if cfg and cfg.get('timeframe') == '1d':
+        return 50
+    from tradingagents.research.per_asset_router import DATA_FILE_MAP
+    entry = DATA_FILE_MAP.get(symbol)
+    if isinstance(entry, tuple) and entry[1] == '1d':
+        return 50
+    return 200
+
+
 def eval_single_asset(symbol: str, cfg: dict = None):
     """Evaluate a single asset. Returns metrics dict with 'pnl' array."""
     if cfg is None:
@@ -287,16 +313,18 @@ def eval_single_asset(symbol: str, cfg: dict = None):
     atr = _atr_vec(high, low, close, cfg.get('atr_period', 14))
 
     strategy = cfg.get('strategy', 'ATR_EXPANSION')
+    warmup = get_warmup(symbol, cfg)
     if strategy == 'ATR_EXPANSION':
-        entries = generate_atr_expansion_entries(df, cfg)
+        entries = generate_atr_expansion_entries(df, cfg, warmup=warmup)
     else:
-        entries = generate_donchian_entries(df, cfg)
+        entries = generate_donchian_entries(df, cfg, warmup=warmup)
 
     pnl, trades = simulate_positions(
         entries, close, high, low, atr,
         cfg['stop_mult'], cfg['tp_mult'], cfg['max_hold_bars'])
 
-    return compute_metrics(pnl, trades, INITIAL_CAPITAL)
+    bpy = get_bars_per_year(symbol, cfg)
+    return compute_metrics(pnl, trades, INITIAL_CAPITAL, bars_per_year=bpy)
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -347,19 +375,35 @@ def main():
               f"{m['max_dd']:7.1f}% {m['win_rate']:7.1f}% {m['n_trades']:8d} {m['pf']:5.2f}")
 
     if len(asset_pnl) >= 2:
-        if args.equal_weight:
-            weights = {sym: 1.0 / len(asset_pnl) for sym in asset_pnl}
-        else:
-            weights = compute_risk_parity_weights(asset_pnl)
-
-        min_len = min(len(p) for p in asset_pnl.values())
-        port_pnl = np.zeros(min_len)
+        # Separate crypto (hourly) and traditional (daily) assets
+        # Convert all to daily equity curves for fair portfolio combination
+        daily_returns = {}
         for sym, pnl in asset_pnl.items():
-            port_pnl += weights[sym] * pnl[:min_len]
+            bpy = get_bars_per_year(sym, ASSET_CONFIG.get(sym))
+            equity = INITIAL_CAPITAL * np.cumprod(1 + pnl)
+            if bpy == 8760:  # hourly → resample to daily (24 bars per day)
+                n_days = len(equity) // 24
+                if n_days > 0:
+                    daily_eq = equity[23::24][:n_days]  # end-of-day values
+                    daily_ret = np.diff(daily_eq) / daily_eq[:-1]
+                    daily_returns[sym] = daily_ret
+            else:  # already daily
+                daily_ret = np.diff(equity) / equity[:-1]
+                daily_returns[sym] = daily_ret
 
-        port_equity = INITIAL_CAPITAL * np.cumprod(1 + port_pnl)
+        if args.equal_weight:
+            weights = {sym: 1.0 / len(daily_returns) for sym in daily_returns}
+        else:
+            weights = compute_risk_parity_weights(daily_returns)
+
+        min_len = min(len(r) for r in daily_returns.values())
+        port_daily = np.zeros(min_len)
+        for sym, ret in daily_returns.items():
+            port_daily += weights[sym] * ret[:min_len]
+
+        port_equity = INITIAL_CAPITAL * np.cumprod(1 + port_daily)
         port_return = (port_equity[-1] / INITIAL_CAPITAL - 1) * 100
-        port_sharpe = float(np.mean(port_pnl) / np.std(port_pnl) * np.sqrt(8760)) if np.std(port_pnl) > 0 else 0
+        port_sharpe = float(np.mean(port_daily) / np.std(port_daily) * np.sqrt(252)) if np.std(port_daily) > 0 else 0
         peak = np.maximum.accumulate(port_equity)
         port_dd = float(np.max((peak - port_equity) / peak) * 100)
         total_trades = sum(m['n_trades'] for m in asset_metrics.values())

@@ -1,0 +1,36 @@
+{
+  "date": "2026-05-15",
+  "nav_usdt": 10000.0,
+  "weights": {
+    "BTCUSDT": 0.125,
+    "ETHUSDT": 0.125,
+    "SOLUSDT": 0.125,
+    "AVAXUSDT": 0.125,
+    "DOGEUSDT": 0.125,
+    "BNBUSDT": 0.125,
+    "XRPUSDT": 0.125,
+    "LINKUSDT": 0.125
+  },
+  "regimes": {
+    "BTCUSDT": 0.5,
+    "ETHUSDT": 0.5,
+    "SOLUSDT": 0.5,
+    "AVAXUSDT": 0.5,
+    "DOGEUSDT": 0.5,
+    "BNBUSDT": 0.5,
+    "XRPUSDT": 0.5,
+    "LINKUSDT": 0.5
+  },
+  "positions": {},
+  "stats": {
+    "n_trades": 0,
+    "win_rate": 0,
+    "total_pnl_usdt": 0,
+    "avg_trade_pct": 0,
+    "profit_factor": 0,
+    "by_strategy": {},
+    "by_symbol": {}
+  },
+  "trades": [],
+  "generated": "2026-05-15T15:34:26.574597+00:00"
+}

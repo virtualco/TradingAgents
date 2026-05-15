@@ -27,6 +27,7 @@ from scripts.eval_multi_asset import (
     load_data, eval_single_asset,
     generate_atr_expansion_entries, generate_donchian_entries,
     simulate_positions, compute_metrics,
+    get_bars_per_year, get_warmup,
     _atr_vec
 )
 from tradingagents.research.per_asset_router import ASSET_CONFIG
@@ -39,6 +40,11 @@ def make_atr_expansion_objective(df, symbol):
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
     low = df['low'].values.astype(float)
+    bpy = get_bars_per_year(symbol)
+    warmup = get_warmup(symbol)
+    is_daily = bpy == 252
+    min_trades = 5 if is_daily else 20
+    target_trades = 10 if is_daily else 50
 
     def objective(trial):
         cfg = {
@@ -51,18 +57,19 @@ def make_atr_expansion_objective(df, symbol):
             'tp_mult':        trial.suggest_float('tp_mult', 2.0, 12.0, step=0.5),
             'order_type':     'Market',
         }
+        if is_daily:
+            cfg['timeframe'] = '1d'
         atr = _atr_vec(high, low, close, cfg['atr_period'])
-        entries = generate_atr_expansion_entries(df, cfg)
+        entries = generate_atr_expansion_entries(df, cfg, warmup=warmup)
         pnl, trades = simulate_positions(
             entries, close, high, low, atr,
             cfg['stop_mult'], cfg['tp_mult'], cfg['max_hold_bars'])
 
-        if len(trades) < 20:
+        if len(trades) < min_trades:
             return -10.0
 
-        metrics = compute_metrics(pnl, trades, INITIAL_CAPITAL)
-        # Penalise if too few trades (want at least 50)
-        trade_penalty = max(0, (50 - len(trades)) * 0.01)
+        metrics = compute_metrics(pnl, trades, INITIAL_CAPITAL, bars_per_year=bpy)
+        trade_penalty = max(0, (target_trades - len(trades)) * 0.01)
         return metrics['sharpe'] - trade_penalty
 
     return objective
@@ -73,6 +80,11 @@ def make_donchian_objective(df, symbol):
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
     low = df['low'].values.astype(float)
+    bpy = get_bars_per_year(symbol)
+    warmup = get_warmup(symbol)
+    is_daily = bpy == 252
+    min_trades = 5 if is_daily else 15
+    target_trades = 10 if is_daily else 40
 
     def objective(trial):
         cfg = {
@@ -82,24 +94,26 @@ def make_donchian_objective(df, symbol):
             'adx_trend':         trial.suggest_int('adx_trend', 15, 35),
             'vol_mult':          trial.suggest_float('vol_mult', 1.0, 4.0, step=0.1),
             'hurst_min':         trial.suggest_float('hurst_min', 0.35, 0.65, step=0.01),
-            'vol_atr_max':       trial.suggest_float('vol_atr_max', 0.02, 0.15, step=0.01),
+            'vol_atr_max':       trial.suggest_categorical('vol_atr_max', [None, 0.02, 0.04, 0.06, 0.08, 0.10, 0.15]),
             'max_hold_bars':     trial.suggest_int('max_hold_bars', 12, 120, step=6),
             'stop_mult':         trial.suggest_float('stop_mult', 0.8, 5.0, step=0.1),
             'tp_mult':           trial.suggest_float('tp_mult', 2.0, 12.0, step=0.5),
             'order_type':        'Market',
             'atr_donchian_factor': trial.suggest_categorical('atr_donchian_factor', [None, 0.5, 1.0, 1.5, 2.0]),
         }
+        if is_daily:
+            cfg['timeframe'] = '1d'
         atr = _atr_vec(high, low, close, 14)
-        entries = generate_donchian_entries(df, cfg)
+        entries = generate_donchian_entries(df, cfg, warmup=warmup)
         pnl, trades = simulate_positions(
             entries, close, high, low, atr,
             cfg['stop_mult'], cfg['tp_mult'], cfg['max_hold_bars'])
 
-        if len(trades) < 15:
+        if len(trades) < min_trades:
             return -10.0
 
-        metrics = compute_metrics(pnl, trades, INITIAL_CAPITAL)
-        trade_penalty = max(0, (40 - len(trades)) * 0.01)
+        metrics = compute_metrics(pnl, trades, INITIAL_CAPITAL, bars_per_year=bpy)
+        trade_penalty = max(0, (target_trades - len(trades)) * 0.01)
         return metrics['sharpe'] - trade_penalty
 
     return objective
