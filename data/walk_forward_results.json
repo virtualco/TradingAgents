@@ -1,0 +1,78 @@
+{
+  "config": {
+    "train_months": 12,
+    "test_months": 6,
+    "n_trials": 100,
+    "validate_only": true
+  },
+  "windows": [
+    {
+      "window": 1,
+      "train_period": "2022-01-01 \u2192 2023-01-01",
+      "test_period": "2023-01-01 \u2192 2023-07-01",
+      "train_sharpe": 1.7323170180066536,
+      "test_sharpe": 0.24599259924337807,
+      "test_return": 1.4413379779210977,
+      "test_max_dd": 12.118410012667056,
+      "test_trades": 163
+    },
+    {
+      "window": 2,
+      "train_period": "2022-07-01 \u2192 2023-07-01",
+      "test_period": "2023-07-01 \u2192 2024-01-01",
+      "train_sharpe": 0.7849268757059212,
+      "test_sharpe": -0.31348549365758316,
+      "test_return": -2.2642042281367014,
+      "test_max_dd": 7.03460696245351,
+      "test_trades": 153
+    },
+    {
+      "window": 3,
+      "train_period": "2023-01-01 \u2192 2024-01-01",
+      "test_period": "2024-01-01 \u2192 2024-07-01",
+      "train_sharpe": -0.08626552950477631,
+      "test_sharpe": 1.4393172606695945,
+      "test_return": 14.408621934521948,
+      "test_max_dd": 7.797735143991848,
+      "test_trades": 136
+    },
+    {
+      "window": 4,
+      "train_period": "2023-07-01 \u2192 2024-07-01",
+      "test_period": "2024-07-01 \u2192 2025-01-01",
+      "train_sharpe": 0.76708379477528,
+      "test_sharpe": 3.110078549730699,
+      "test_return": 43.966299547067635,
+      "test_max_dd": 8.030235303122367,
+      "test_trades": 134
+    },
+    {
+      "window": 5,
+      "train_period": "2024-01-01 \u2192 2025-01-01",
+      "test_period": "2025-01-01 \u2192 2025-07-01",
+      "train_sharpe": 2.518350080748048,
+      "test_sharpe": 0.25367832640716165,
+      "test_return": 1.6439169955996924,
+      "test_max_dd": 10.944672130399441,
+      "test_trades": 133
+    },
+    {
+      "window": 6,
+      "train_period": "2024-07-01 \u2192 2025-07-01",
+      "test_period": "2025-07-01 \u2192 2026-01-01",
+      "train_sharpe": 1.6463456486431367,
+      "test_sharpe": -0.6526189192625502,
+      "test_return": -6.725362674562129,
+      "test_max_dd": 12.283526476233984,
+      "test_trades": 131
+    }
+  ],
+  "summary": {
+    "avg_test_sharpe": 0.6804937205217834,
+    "std_test_sharpe": 1.2658885022665154,
+    "min_test_sharpe": -0.6526189192625502,
+    "max_test_sharpe": 3.110078549730699,
+    "positive_windows": 4,
+    "total_windows": 6
+  }
+}
