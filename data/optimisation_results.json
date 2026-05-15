@@ -1,0 +1,86 @@
+[
+  {
+    "symbol": "AVAXUSDT",
+    "strategy": "DONCHIAN_MOMENTUM",
+    "params": {
+      "donchian_period": 21,
+      "adx_min": 25,
+      "adx_trend": 16,
+      "vol_mult": 2.7,
+      "hurst_min": 0.39999999999999997,
+      "vol_atr_max": 0.02,
+      "max_hold_bars": 48,
+      "stop_mult": 4.9,
+      "tp_mult": 11.5,
+      "atr_donchian_factor": 1.0,
+      "strategy": "DONCHIAN_MOMENTUM",
+      "order_type": "Market"
+    },
+    "metrics": {
+      "sharpe": 2.0027059085050674,
+      "total_return": 2639.099457880269,
+      "max_dd": 33.173815763184884,
+      "n_trades": 217,
+      "win_rate": 58.986175115207374,
+      "pf": 2.176826681168137
+    },
+    "n_trials": 300,
+    "time_s": 571.8533573150635
+  },
+  {
+    "symbol": "BNBUSDT",
+    "strategy": "DONCHIAN_MOMENTUM",
+    "params": {
+      "donchian_period": 19,
+      "adx_min": 28,
+      "adx_trend": 32,
+      "vol_mult": 3.5,
+      "hurst_min": 0.5,
+      "vol_atr_max": 0.02,
+      "max_hold_bars": 114,
+      "stop_mult": 4.1000000000000005,
+      "tp_mult": 10.0,
+      "atr_donchian_factor": 2.0,
+      "strategy": "DONCHIAN_MOMENTUM",
+      "order_type": "Market"
+    },
+    "metrics": {
+      "sharpe": 1.3344637814064906,
+      "total_return": 193.58793612459166,
+      "max_dd": 13.837918992181978,
+      "n_trades": 54,
+      "win_rate": 61.111111111111114,
+      "pf": 2.772505481733736
+    },
+    "n_trials": 300,
+    "time_s": 558.406564950943
+  },
+  {
+    "symbol": "LINKUSDT",
+    "strategy": "DONCHIAN_MOMENTUM",
+    "params": {
+      "donchian_period": 22,
+      "adx_min": 15,
+      "adx_trend": 21,
+      "vol_mult": 2.8,
+      "hurst_min": 0.51,
+      "vol_atr_max": 0.02,
+      "max_hold_bars": 36,
+      "stop_mult": 2.2,
+      "tp_mult": 9.0,
+      "atr_donchian_factor": 0.5,
+      "strategy": "DONCHIAN_MOMENTUM",
+      "order_type": "Market"
+    },
+    "metrics": {
+      "sharpe": 1.6426982981136544,
+      "total_return": 413.6097238504544,
+      "max_dd": 15.683326102629067,
+      "n_trades": 89,
+      "win_rate": 60.67415730337079,
+      "pf": 3.077321113472085
+    },
+    "n_trials": 300,
+    "time_s": 568.7527945041656
+  }
+]

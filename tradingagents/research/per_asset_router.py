@@ -1,15 +1,20 @@
 """
-Per-Asset Strategy Router
-=========================
+Per-Asset Strategy Router (Multi-Asset v2)
+==========================================
 Validated OOS routing (2022-2026, 35,064 bars per asset):
 
-  BTCUSDT → ATR Expansion Breakout  (Sharpe 0.52, +14.2%, DD 39.8%)
-             Limit orders ONLY — fee-sensitive, requires maker rates (0.01%)
-  ETHUSDT → Donchian Momentum       (Sharpe 1.55, +136%, DD 28.8%)
-             Market or limit orders — robust to taker fees (0.06%)
+  BTCUSDT  → ATR Expansion Breakout  (Sharpe 1.18, +117%, DD 12.9%)
+  ETHUSDT  → Donchian Momentum       (Sharpe 1.16, +370%, DD 34.2%)
+  SOLUSDT  → ATR Expansion Breakout  (initial config — pending Bayesian opt)
+  AVAXUSDT → Donchian Momentum       (initial config — pending Bayesian opt)
+  DOGEUSDT → ATR Expansion Breakout  (initial config — pending Bayesian opt)
+  BNBUSDT  → Donchian Momentum       (initial config — pending Bayesian opt)
+  XRPUSDT  → ATR Expansion Breakout  (initial config — pending Bayesian opt)
+  LINKUSDT → Donchian Momentum       (initial config — pending Bayesian opt)
 
-This module is a drop-in replacement for DualRegimeStrategy.generate_signals()
-and is designed to be used by live_trader.py's SignalProcessor.
+Strategy assignment rationale:
+- ATR Expansion: Best for assets with sharp breakout moves (BTC, SOL, DOGE, XRP)
+- Donchian Momentum: Best for assets with sustained trends (ETH, AVAX, BNB, LINK)
 """
 from __future__ import annotations
 
@@ -82,47 +87,155 @@ def _hurst_fast(close: np.ndarray, window: int = 96) -> np.ndarray:
     return h
 
 
-# ── Strategy Parameters (OOS-validated) ──────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# STRATEGY PARAMETERS — Per-Asset Configs
+# ══════════════════════════════════════════════════════════════════════════════
 
+# ── BTC: ATR Expansion Breakout (Bayesian-optimised, Sharpe 1.18) ────────────
 BTC_CONFIG = {
-    'atr_period':     15,        # bayesian-optimised (was 14)
-    'expansion_mult': 3.7,       # bayesian-optimised (was 3.0)
-    'vol_mult':       2.5,       # bayesian-optimised (was 1.2)
+    'strategy':       'ATR_EXPANSION',
+    'atr_period':     15,
+    'expansion_mult': 3.7,
+    'vol_mult':       2.5,
     'max_hold_bars':  12,
-    'order_type':     'Limit',   # MUST be limit for BTC — fee sensitive
+    'order_type':     'Limit',
     'stop_mult':      1.5,
-    'tp_mult':        8.0,       # bayesian-optimised (was 4.0)
+    'tp_mult':        8.0,
 }
 
+# ── ETH: Donchian Momentum (Bayesian-optimised, Sharpe 1.16) ────────────────
 ETH_CONFIG = {
-    'donchian_period':  32,       # bayesian-optimised (was 28)
-    'adx_min':          21,       # bayesian-optimised (was 12)
-    'adx_trend':        22,       # bayesian-optimised (was 24)
-    'vol_mult':         2.0,      # bayesian-optimised (was 1.8)
-    'hurst_min':        0.52,     # bayesian-optimised (was 0.42)
-    'vol_atr_max':      0.08,     # bayesian-optimised (was 0.04)
-    'max_hold_bars':    90,       # bayesian-optimised (was 60)
-    'order_type':       'Market',
-    'stop_mult':        3.0,      # bayesian-optimised (was 1.2)
-    'tp_mult':          9.0,      # bayesian-optimised (was 6.0)
-    'atr_donchian_factor': 1.0,   # bayesian-optimised (new — adaptive Donchian)
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   32,
+    'adx_min':           21,
+    'adx_trend':         22,
+    'vol_mult':          2.0,
+    'hurst_min':         0.52,
+    'vol_atr_max':       0.08,
+    'max_hold_bars':     90,
+    'order_type':        'Market',
+    'stop_mult':         3.0,
+    'tp_mult':           9.0,
+    'atr_donchian_factor': 1.0,
 }
 
+# ── SOL: ATR Expansion Breakout (Bayesian-optimised, Sharpe 1.24) ────────────
+SOL_CONFIG = {
+    'strategy':       'ATR_EXPANSION',
+    'atr_period':     16,
+    'expansion_mult': 3.3,
+    'vol_mult':       1.2,
+    'max_hold_bars':  32,
+    'order_type':     'Market',
+    'stop_mult':      2.4,
+    'tp_mult':        3.5,
+}
+
+# ── AVAX: Donchian Momentum (Bayesian-optimised, Sharpe 2.00) ───────────────
+AVAX_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   21,
+    'adx_min':           25,
+    'adx_trend':         16,
+    'vol_mult':          2.7,
+    'hurst_min':         0.40,
+    'vol_atr_max':       0.02,
+    'max_hold_bars':     48,
+    'order_type':        'Market',
+    'stop_mult':         4.9,
+    'tp_mult':           11.5,
+    'atr_donchian_factor': 1.0,
+}
+
+# ── DOGE: ATR Expansion Breakout (Bayesian-optimised, Sharpe 0.97) ───────────
+DOGE_CONFIG = {
+    'strategy':       'ATR_EXPANSION',
+    'atr_period':     11,
+    'expansion_mult': 4.2,
+    'vol_mult':       3.8,
+    'max_hold_bars':  18,
+    'order_type':     'Market',
+    'stop_mult':      2.3,
+    'tp_mult':        2.0,
+}
+
+# ── BNB: Donchian Momentum (Bayesian-optimised, Sharpe 1.33) ────────────────
+BNB_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   19,
+    'adx_min':           28,
+    'adx_trend':         32,
+    'vol_mult':          3.5,
+    'hurst_min':         0.50,
+    'vol_atr_max':       0.02,
+    'max_hold_bars':     114,
+    'order_type':        'Market',
+    'stop_mult':         4.1,
+    'tp_mult':           10.0,
+    'atr_donchian_factor': 2.0,
+}
+
+# ── XRP: ATR Expansion Breakout (Bayesian-optimised, Sharpe 1.37) ────────────
+XRP_CONFIG = {
+    'strategy':       'ATR_EXPANSION',
+    'atr_period':     11,
+    'expansion_mult': 4.9,
+    'vol_mult':       3.2,
+    'max_hold_bars':  32,
+    'order_type':     'Market',
+    'stop_mult':      2.9,
+    'tp_mult':        2.0,
+}
+
+# ── LINK: Donchian Momentum (Bayesian-optimised, Sharpe 1.64) ───────────────
+LINK_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   22,
+    'adx_min':           15,
+    'adx_trend':         21,
+    'vol_mult':          2.8,
+    'hurst_min':         0.51,
+    'vol_atr_max':       0.02,
+    'max_hold_bars':     36,
+    'order_type':        'Market',
+    'stop_mult':         2.2,
+    'tp_mult':           9.0,
+    'atr_donchian_factor': 0.5,
+}
+
+# ── Master Config Map ────────────────────────────────────────────────────────
 ASSET_CONFIG = {
-    'BTCUSDT': BTC_CONFIG,
-    'ETHUSDT': ETH_CONFIG,
+    'BTCUSDT':  BTC_CONFIG,
+    'ETHUSDT':  ETH_CONFIG,
+    'SOLUSDT':  SOL_CONFIG,
+    'AVAXUSDT': AVAX_CONFIG,
+    'DOGEUSDT': DOGE_CONFIG,
+    'BNBUSDT':  BNB_CONFIG,
+    'XRPUSDT':  XRP_CONFIG,
+    'LINKUSDT': LINK_CONFIG,
+}
+
+# Data file mapping (symbol → parquet filename prefix)
+DATA_FILE_MAP = {
+    'BTCUSDT':  'BTC_USD',
+    'ETHUSDT':  'ETH_USD',
+    'SOLUSDT':  'SOL_USD',
+    'AVAXUSDT': 'AVAX_USD',
+    'DOGEUSDT': 'DOGE_USD',
+    'BNBUSDT':  'BNB_USD',
+    'XRPUSDT':  'XRP_USD',
+    'LINKUSDT': 'LINK_USD',
 }
 
 
 # ── Signal Generators ─────────────────────────────────────────────────────────
 
-def _btc_signal(df: pd.DataFrame) -> dict:
+def _atr_expansion_signal(df: pd.DataFrame, cfg: dict, symbol: str) -> dict:
     """
-    BTC: ATR Expansion Breakout
-    Enter on a bar whose range exceeds 3× prior ATR with volume surge.
-    Limit orders only — edge is destroyed by taker fees.
+    ATR Expansion Breakout strategy.
+    Enter on a bar whose range exceeds expansion_mult × prior ATR with volume surge.
+    Used for: BTC, SOL, DOGE, XRP
     """
-    cfg = BTC_CONFIG
     close  = df['close'].values.astype(float)
     high   = df['high'].values.astype(float)
     low    = df['low'].values.astype(float)
@@ -153,17 +266,17 @@ def _btc_signal(df: pd.DataFrame) -> dict:
     atr_last = float(atr_v[-1])
 
     return {
-        'symbol':     'BTCUSDT',
+        'symbol':     symbol,
         'signal':     signal,
         'regime':     regime,
         'strategy':   'ATR_EXPANSION',
         'order_type': cfg['order_type'],
-        'conviction': round(float(bar_range[-1] / prev_atr[-1]) / 5.0, 3),  # normalised 0-1
+        'conviction': round(float(bar_range[-1] / prev_atr[-1]) / 5.0, 3),
         'price':      price,
         'atr':        atr_last,
         'adx':        adx_last,
         'rsi':        float(rsi_v[-1]),
-        'hurst':      0.5,  # not used for BTC
+        'hurst':      0.5,
         'di_plus':    float(di_p[-1]),
         'di_minus':   float(di_m[-1]),
         'bar_range':  float(bar_range[-1]),
@@ -177,19 +290,23 @@ def _btc_signal(df: pd.DataFrame) -> dict:
     }
 
 
-def _eth_signal(df: pd.DataFrame) -> dict:
+def _donchian_momentum_signal(df: pd.DataFrame, cfg: dict, symbol: str) -> dict:
     """
-    ETH: Donchian Momentum with Hurst regime filter.
-    Enter on Donchian channel breakout with ADX ≥ 22, Hurst ≥ 0.48, volume surge.
-    Robust to taker fees — market orders acceptable.
+    Donchian Momentum with Hurst regime filter.
+    Enter on Donchian channel breakout with ADX + Hurst + volume confirmation.
+    Used for: ETH, AVAX, BNB, LINK
     """
-    cfg = ETH_CONFIG
     close  = df['close'].values.astype(float)
     high   = df['high'].values.astype(float)
     low    = df['low'].values.astype(float)
     volume = df['volume'].values.astype(float)
     n = len(close)
     dp = cfg['donchian_period']
+
+    # Adaptive Donchian period if factor is set
+    if cfg.get('atr_donchian_factor') is not None:
+        atr_pct = _atr(high, low, close, 14)[-1] / close[-1] if close[-1] > 0 else 0.01
+        dp = max(10, min(50, int(dp * (1 + cfg['atr_donchian_factor'] * (atr_pct - 0.02) / 0.02))))
 
     atr_v   = _atr(high, low, close, 14)
     adx_v, di_p, di_m = _adx(high, low, close)
@@ -209,7 +326,7 @@ def _eth_signal(df: pd.DataFrame) -> dict:
     trending  = adx_last >= cfg['adx_trend'] and hurst_last >= cfg['hurst_min']
     adx_ok    = adx_last >= cfg['adx_min']
     vol_ok    = volume[-1] >= cfg['vol_mult'] * vol_ma[-1]
-    low_vol   = atr_pct <= cfg['vol_atr_max']
+    low_vol   = (cfg.get('vol_atr_max') is None) or (atr_pct <= cfg['vol_atr_max'])
 
     long_sig  = bool(not np.isnan(dc_upper) and price > dc_upper and adx_ok and vol_ok and low_vol and trending)
     short_sig = bool(not np.isnan(dc_lower) and price < dc_lower and adx_ok and vol_ok and low_vol and trending)
@@ -218,7 +335,7 @@ def _eth_signal(df: pd.DataFrame) -> dict:
     regime = 'TRENDING' if trending else ('RANGING' if adx_last < 15 else 'TRANSITION')
 
     return {
-        'symbol':     'ETHUSDT',
+        'symbol':     symbol,
         'signal':     signal,
         'regime':     regime,
         'strategy':   'DONCHIAN_MOMENTUM',
@@ -246,17 +363,15 @@ def _eth_signal(df: pd.DataFrame) -> dict:
 
 class PerAssetRouter:
     """
-    Drop-in replacement for DualRegimeStrategy in the SignalProcessor pipeline.
-    Routes each symbol to its OOS-validated strategy.
+    Multi-asset strategy router. Routes each symbol to its OOS-validated strategy.
 
-    Usage in live_trader.py:
+    Usage:
         from tradingagents.research.per_asset_router import PerAssetRouter
-        self.strategy = PerAssetRouter()
-        # Then in SignalProcessor.generate_signal(symbol):
-        #   sig = self.strategy.generate_signals(df, symbol)
+        router = PerAssetRouter()
+        sig = router.generate_signals(df, 'BTCUSDT')
     """
 
-    SUPPORTED_SYMBOLS = {'BTCUSDT', 'ETHUSDT'}
+    SUPPORTED_SYMBOLS = set(ASSET_CONFIG.keys())
 
     def generate_signals(self, df: pd.DataFrame, symbol: Optional[str] = None) -> dict:
         """
@@ -264,7 +379,7 @@ class PerAssetRouter:
 
         Args:
             df: OHLCV DataFrame with columns [open, high, low, close, volume]
-            symbol: Trading symbol (BTCUSDT or ETHUSDT)
+            symbol: Trading symbol (e.g., BTCUSDT, ETHUSDT, SOLUSDT, etc.)
 
         Returns:
             Signal dict compatible with live_trader.py's OrderExecutor
@@ -285,10 +400,15 @@ class PerAssetRouter:
                 'stop_loss': 0, 'take_profit': 0, 'max_hold_bars': 24,
             }
 
-        if sym == 'BTCUSDT':
-            return _btc_signal(df)
+        cfg = ASSET_CONFIG[sym]
+        strategy = cfg['strategy']
+
+        if strategy == 'ATR_EXPANSION':
+            return _atr_expansion_signal(df, cfg, sym)
+        elif strategy == 'DONCHIAN_MOMENTUM':
+            return _donchian_momentum_signal(df, cfg, sym)
         else:
-            return _eth_signal(df)
+            raise ValueError(f'Unknown strategy: {strategy}')
 
     def get_order_type(self, symbol: str) -> str:
         """Returns the validated order type for a given symbol."""
@@ -299,3 +419,12 @@ class PerAssetRouter:
         """Returns the validated max hold period for a given symbol."""
         cfg = ASSET_CONFIG.get(symbol.upper(), {})
         return cfg.get('max_hold_bars', 24)
+
+    def get_config(self, symbol: str) -> dict:
+        """Returns the full config dict for a symbol."""
+        return ASSET_CONFIG.get(symbol.upper(), {})
+
+    @classmethod
+    def get_all_symbols(cls) -> list:
+        """Returns all supported symbols."""
+        return list(ASSET_CONFIG.keys())
