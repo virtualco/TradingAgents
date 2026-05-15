@@ -1,0 +1,38 @@
+{
+  "score": 0.0,
+  "per_ticker": {
+    "BTC-USD": {
+      "total_return_pct": 0.0,
+      "weekly_return_pct": 0.0,
+      "annualized_return_pct": 0.0,
+      "sharpe": 0.0,
+      "max_drawdown_pct": 0.0,
+      "win_rate": 0.0,
+      "n_trades": 0,
+      "n_days": 59,
+      "final_capital": 100000.0
+    },
+    "ETH-USD": {
+      "total_return_pct": 0.0,
+      "weekly_return_pct": 0.0,
+      "annualized_return_pct": 0.0,
+      "sharpe": 0.0,
+      "max_drawdown_pct": 0.0,
+      "win_rate": 0.0,
+      "n_trades": 0,
+      "n_days": 59,
+      "final_capital": 100000.0
+    }
+  },
+  "aggregate": {
+    "total_return_pct": 0.0,
+    "weekly_return_pct": 0.0,
+    "annualized_return_pct": 0.0,
+    "sharpe": 0.0,
+    "max_drawdown_pct": 0.0,
+    "win_rate": 0.0,
+    "n_trades": 0.0,
+    "n_days": 59.0,
+    "final_capital": 100000.0
+  }
+}

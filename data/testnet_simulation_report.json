@@ -1,0 +1,63 @@
+{
+  "run_date": "2026-05-09T05:52:57.095551+00:00",
+  "dry_run": true,
+  "checks": {
+    "connectivity": {
+      "ok": true,
+      "server_time_ms": 1778305980413
+    },
+    "candles_BTCUSDT": {
+      "ok": true,
+      "rows": 300
+    },
+    "candles_ETHUSDT": {
+      "ok": true,
+      "rows": 300
+    },
+    "balance": {
+      "ok": false,
+      "error": "API call failed after 3 attempts: Authenticated endpoints require keys.",
+      "fallback_equity": 10000.0
+    }
+  },
+  "signals": {
+    "BTCUSDT": {
+      "signal": 0,
+      "price": 79758.7,
+      "atr": 22119.84,
+      "atr_pct": 27.733
+    },
+    "ETHUSDT": {
+      "signal": 0,
+      "price": 2314.3,
+      "atr": 969.53,
+      "atr_pct": 41.893
+    }
+  },
+  "risk_checks": {
+    "BTCUSDT": {
+      "signal": 0,
+      "action": "FLAT_NO_CHECK"
+    },
+    "ETHUSDT": {
+      "signal": 0,
+      "action": "FLAT_NO_CHECK"
+    }
+  },
+  "orders": {
+    "BTCUSDT": {
+      "action": "SKIPPED",
+      "reason": "Not approved"
+    },
+    "ETHUSDT": {
+      "action": "SKIPPED",
+      "reason": "Not approved"
+    }
+  },
+  "summary": {
+    "status": "PASS",
+    "pipeline_validated": true,
+    "ready_for_testnet_live": true,
+    "next_step": "Set BYBIT_TESTNET_API_KEY and BYBIT_TESTNET_API_SECRET, then run: python3 scripts/run_bybit_testnet.py"
+  }
+}

@@ -1,0 +1,17 @@
+commit	metric	status	description
+baseline	32.902000	keep	v3 ADX+regime-adaptive baseline
+iter1	34.370000	keep	
+iter2	17.556000	discard	Introducing a regime-filtered combined signal score with adaptive thresholds, ad
+iter3	0.000000	discard	Incorporate a volatility regime filter (using rolling realized volatility) to dy
+iter4	15.190000	discard	Introducing a volatility regime filter combined with ADX to separate low-volatil
+iter5	34.680000	keep	Introducing a volatility filter to avoid mean reversion trades during high volat
+iter6	15.132000	discard	Introducing a dynamic regime-switching framework that adaptively blends momentum
+iter7	39.106000	keep	Introduce a more robust dynamic regime identification combining ADX trend streng
+iter8	39.468000	keep	Introducing a multi-factor regime classification with a volatility-adjusted mome
+iter9	39.468000	discard	Incorporating a smoother, multi-timeframe regime filter combining ADX with a lon
+iter10	39.468000	discard	Introducing a more robust multi-timeframe regime filter combining ADX and volati
+iter11	39.468000	discard	Introducing a more selective entry filter by combining volatility regime classif
+iter12	39.468000	discard	Introducing a clearer regime switch using a composite score combining ADX, volat
+iter13	36.550000	discard	Combining a more robust regime classification using ADX, volatility, and momentu
+iter14	36.550000	discard	Incorporate a volatility regime filter to dynamically adjust position sizing and
+iter15	36.550000	discard	Introducing a dynamic regime classification combining ADX, volatility regime, an

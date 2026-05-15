@@ -1,0 +1,129 @@
+{
+  "strategy": "DualRegimeStrategy",
+  "run_date": "2026-05-09T02:20:21.711659",
+  "results": {
+    "BTC": {
+      "periods": [
+        {
+          "period": "Bear Market 2022",
+          "total_return_pct": -14.36,
+          "weekly_return_pct": -0.3,
+          "sharpe": -1.088,
+          "max_drawdown_pct": 24.15,
+          "n_trades": 85,
+          "win_rate_pct": 44.8,
+          "regime_trending_pct": 5.1,
+          "regime_ranging_pct": 9.1,
+          "regime_transition_pct": 85.8
+        },
+        {
+          "period": "Recovery 2023",
+          "total_return_pct": -1.62,
+          "weekly_return_pct": -0.03,
+          "sharpe": -0.107,
+          "max_drawdown_pct": 8.77,
+          "n_trades": 76,
+          "win_rate_pct": 48.6,
+          "regime_trending_pct": 4.2,
+          "regime_ranging_pct": 11.6,
+          "regime_transition_pct": 84.2
+        },
+        {
+          "period": "Bull Market 2024",
+          "total_return_pct": -13.06,
+          "weekly_return_pct": -0.27,
+          "sharpe": -1.285,
+          "max_drawdown_pct": 17.34,
+          "n_trades": 68,
+          "win_rate_pct": 41.8,
+          "regime_trending_pct": 4.1,
+          "regime_ranging_pct": 10.6,
+          "regime_transition_pct": 85.3
+        },
+        {
+          "period": "Post-ATH 2025",
+          "total_return_pct": -5.53,
+          "weekly_return_pct": -0.11,
+          "sharpe": -0.561,
+          "max_drawdown_pct": 13.87,
+          "n_trades": 65,
+          "win_rate_pct": 45.5,
+          "regime_trending_pct": 3.4,
+          "regime_ranging_pct": 8.6,
+          "regime_transition_pct": 88.0
+        }
+      ],
+      "wfa": {
+        "wfa_avg_weekly_return_pct": -0.096,
+        "wfa_profitable_folds_pct": 39.6,
+        "wfa_sharpe": -0.172,
+        "wfa_n_folds": 48,
+        "wfa_best_month_pct": 1.64,
+        "wfa_worst_month_pct": -1.39
+      },
+      "score": 35.71
+    },
+    "ETH": {
+      "periods": [
+        {
+          "period": "Bear Market 2022",
+          "total_return_pct": -6.85,
+          "weekly_return_pct": -0.14,
+          "sharpe": -0.322,
+          "max_drawdown_pct": 16.08,
+          "n_trades": 81,
+          "win_rate_pct": 44.9,
+          "regime_trending_pct": 4.3,
+          "regime_ranging_pct": 8.0,
+          "regime_transition_pct": 87.7
+        },
+        {
+          "period": "Recovery 2023",
+          "total_return_pct": -9.39,
+          "weekly_return_pct": -0.19,
+          "sharpe": -1.177,
+          "max_drawdown_pct": 11.35,
+          "n_trades": 70,
+          "win_rate_pct": 42.3,
+          "regime_trending_pct": 3.4,
+          "regime_ranging_pct": 9.1,
+          "regime_transition_pct": 87.5
+        },
+        {
+          "period": "Bull Market 2024",
+          "total_return_pct": 23.81,
+          "weekly_return_pct": 0.41,
+          "sharpe": 1.6,
+          "max_drawdown_pct": 7.52,
+          "n_trades": 88,
+          "win_rate_pct": 47.2,
+          "regime_trending_pct": 4.4,
+          "regime_ranging_pct": 8.5,
+          "regime_transition_pct": 87.1
+        },
+        {
+          "period": "Post-ATH 2025",
+          "total_return_pct": -24.86,
+          "weekly_return_pct": -0.55,
+          "sharpe": -1.61,
+          "max_drawdown_pct": 29.5,
+          "n_trades": 80,
+          "win_rate_pct": 45.0,
+          "regime_trending_pct": 5.9,
+          "regime_ranging_pct": 7.6,
+          "regime_transition_pct": 86.5
+        }
+      ],
+      "wfa": {
+        "wfa_avg_weekly_return_pct": -0.111,
+        "wfa_profitable_folds_pct": 41.7,
+        "wfa_sharpe": -0.136,
+        "wfa_n_folds": 48,
+        "wfa_best_month_pct": 1.51,
+        "wfa_worst_month_pct": -2.81
+      },
+      "score": 37.06
+    }
+  },
+  "avg_score": 36.385000000000005
+}
