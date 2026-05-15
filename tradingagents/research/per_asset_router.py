@@ -23,6 +23,8 @@ from typing import Optional
 def _ewm(arr: np.ndarray, span: int) -> np.ndarray:
     alpha = 2.0 / (span + 1)
     result = np.empty_like(arr, dtype=float)
+    if len(arr) == 0:
+        return result
     result[0] = float(arr[0])
     for i in range(1, len(arr)):
         result[i] = alpha * float(arr[i]) + (1 - alpha) * result[i - 1]
@@ -95,16 +97,17 @@ BTC_CONFIG = {
 }
 
 ETH_CONFIG = {
-    'donchian_period':  25,
-    'adx_min':          18,
-    'adx_trend':        22,
-    'vol_mult':         2.0,
-    'hurst_min':        0.48,
-    'vol_atr_max':      0.03,
+    'donchian_period':  25, # Base period, will be adapted
+    'adx_min':          15, # Lowered from 18
+    'adx_trend':        18, # Lowered from 22
+    'vol_mult':         1.5, # Lowered from 2.0
+    'hurst_min':        0.45, # Lowered from 0.48
+    'vol_atr_max':      0.03, # REMOVED: This filter will be removed
     'max_hold_bars':    72,
     'order_type':       'Market',
     'stop_mult':        2.0,
     'tp_mult':          4.0,
+    'atr_donchian_factor': 0.5, # Factor for adaptive Donchian period
 }
 
 ASSET_CONFIG = {
@@ -179,8 +182,9 @@ def _btc_signal(df: pd.DataFrame) -> dict:
 def _eth_signal(df: pd.DataFrame) -> dict:
     """
     ETH: Donchian Momentum with Hurst regime filter.
-    Enter on Donchian channel breakout with ADX ≥ 22, Hurst ≥ 0.48, volume surge.
+    Enter on Donchian channel breakout with ADX ≥ 18, Hurst ≥ 0.45, volume surge.
     Robust to taker fees — market orders acceptable.
+    Adaptive Donchian period based on ATR.
     """
     cfg = ETH_CONFIG
     close  = df['close'].values.astype(float)
@@ -188,7 +192,6 @@ def _eth_signal(df: pd.DataFrame) -> dict:
     low    = df['low'].values.astype(float)
     volume = df['volume'].values.astype(float)
     n = len(close)
-    dp = cfg['donchian_period']
 
     atr_v   = _atr(high, low, close, 14)
     adx_v, di_p, di_m = _adx(high, low, close)
@@ -196,22 +199,39 @@ def _eth_signal(df: pd.DataFrame) -> dict:
     hurst_v = _hurst_fast(close, 96)
     vol_ma  = np.array([volume[max(0, i - 19):i + 1].mean() for i in range(n)])
 
-    dc_upper = float(high[max(0, n - dp - 1):n - 1].max()) if n > dp else float('nan')
-    dc_lower = float(low[max(0, n - dp - 1):n - 1].min())  if n > dp else float('nan')
-
     price    = float(close[-1])
     atr_last = float(atr_v[-1])
     adx_last = float(adx_v[-1])
     hurst_last = float(hurst_v[-1])
-    atr_pct  = atr_last / price if price > 0 else 1.0
+
+    # Adaptive Donchian Period: scale based on ATR to capture volatility changes
+    # Use a rolling average of ATR for context, or simpler, recent volatility.
+    # If recent ATR is high relative to its recent average, shorten the period.
+    # If recent ATR is low, lengthen it.
+    if n > cfg['donchian_period'] * 2: # Ensure enough data for average
+        recent_atr_avg = np.mean(atr_v[-cfg['donchian_period']:])
+        if recent_atr_avg > 0:
+            # Adjust factor to ensure adaptive_dp stays within reasonable range (e.g., 10-50)
+            # A higher atr_last / recent_atr_avg ratio means higher current volatility, so shorten period.
+            # We want an inverse relationship.
+            vol_ratio = atr_last / recent_atr_avg
+            # Use a power to make the adjustment more sensitive, and clamp values
+            adaptive_dp = int(np.clip(cfg['donchian_period'] / (vol_ratio ** 0.5), 15, 45))
+        else:
+            adaptive_dp = cfg['donchian_period']
+    else:
+        adaptive_dp = cfg['donchian_period']
+
+    dc_upper = float(high[max(0, n - adaptive_dp - 1):n - 1].max()) if n > adaptive_dp else float('nan')
+    dc_lower = float(low[max(0, n - adaptive_dp - 1):n - 1].min())  if n > adaptive_dp else float('nan')
 
     trending  = adx_last >= cfg['adx_trend'] and hurst_last >= cfg['hurst_min']
     adx_ok    = adx_last >= cfg['adx_min']
     vol_ok    = volume[-1] >= cfg['vol_mult'] * vol_ma[-1]
-    low_vol   = atr_pct <= cfg['vol_atr_max']
+    # Removed: low_vol filter: atr_pct <= cfg['vol_atr_max']
 
-    long_sig  = bool(not np.isnan(dc_upper) and price > dc_upper and adx_ok and vol_ok and low_vol and trending)
-    short_sig = bool(not np.isnan(dc_lower) and price < dc_lower and adx_ok and vol_ok and low_vol and trending)
+    long_sig  = bool(not np.isnan(dc_upper) and price > dc_upper and adx_ok and vol_ok and trending)
+    short_sig = bool(not np.isnan(dc_lower) and price < dc_lower and adx_ok and vol_ok and trending)
     signal    = 'LONG' if long_sig else ('SHORT' if short_sig else 'FLAT')
 
     regime = 'TRENDING' if trending else ('RANGING' if adx_last < 15 else 'TRANSITION')
@@ -275,6 +295,8 @@ class PerAssetRouter:
         if sym not in self.SUPPORTED_SYMBOLS:
             raise ValueError(f'Unsupported symbol: {symbol}. Supported: {self.SUPPORTED_SYMBOLS}')
 
+        # The hurst indicator needs at least 96 bars, and other indicators need at least 14-20 bars.
+        # Set a minimum threshold for reliable indicator calculation.
         if len(df) < 100:
             return {
                 'symbol': sym, 'signal': 'FLAT', 'regime': 'TRANSITION',
