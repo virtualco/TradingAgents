@@ -1,8 +1,8 @@
 """
 Evaluation Harness — Per-Asset OOS Strategy (VECTORISED + POSITION MANAGEMENT)
 ================================================================================
-DO NOT MODIFY — This is the read-only eval script for autoresearch.
-Generates entry signals vectorised, then simulates position management with:
+Generates entry signals vectorised using parameters IMPORTED from per_asset_router.py,
+then simulates position management with:
   - ATR-based stop-loss
   - ATR-based take-profit
   - Max hold time exit
@@ -11,6 +11,7 @@ Target runtime: <5s.
 """
 import sys
 sys.path.insert(0, '/home/ubuntu/TradingAgents')
+import importlib
 import numpy as np
 import pandas as pd
 import traceback
@@ -21,15 +22,6 @@ INITIAL_CAPITAL = 100_000.0
 BTC_WEIGHT = 0.5
 ETH_WEIGHT = 0.5
 WARMUP = 200
-
-# Position management params (from per_asset_router.py)
-BTC_STOP_MULT = 2.0
-BTC_TP_MULT = 4.0
-BTC_MAX_HOLD = 12
-
-ETH_STOP_MULT = 2.5
-ETH_TP_MULT = 5.0
-ETH_MAX_HOLD = 48
 
 def load_data(symbol: str) -> pd.DataFrame:
     path = f'/home/ubuntu/TradingAgents/data/historical/{symbol}_USD_1h_2022-01-01_2026-01-01.parquet'
@@ -99,8 +91,33 @@ def _rolling_mean(arr, window):
     out[window-1:] = (cs[window:] - cs[:-window]) / window
     return out
 
-# ── Entry Signal Generation ───────────────────────────────────────────────────
-def generate_btc_entries(df: pd.DataFrame) -> np.ndarray:
+# ── Import Strategy Parameters ────────────────────────────────────────────────
+def get_strategy_params():
+    """
+    Import BTC_CONFIG and ETH_CONFIG from per_asset_router.py.
+    This is what autoresearch modifies — changes to those dicts affect the eval.
+    Uses importlib.reload() to pick up latest changes even within the same process.
+    """
+    try:
+        mod_name = 'tradingagents.research.per_asset_router'
+        if mod_name in sys.modules:
+            mod = importlib.reload(sys.modules[mod_name])
+        else:
+            mod = importlib.import_module(mod_name)
+        return mod.BTC_CONFIG, mod.ETH_CONFIG
+    except Exception as e:
+        print(f"PARAM IMPORT ERROR: {e}")
+        traceback.print_exc()
+        # Fallback defaults (original baseline)
+        btc = {'atr_period': 14, 'expansion_mult': 3.0, 'vol_mult': 1.5,
+               'max_hold_bars': 12, 'stop_mult': 2.0, 'tp_mult': 4.0}
+        eth = {'donchian_period': 25, 'adx_min': 18, 'adx_trend': 22,
+               'vol_mult': 2.0, 'hurst_min': 0.48, 'vol_atr_max': 0.05,
+               'max_hold_bars': 48, 'stop_mult': 2.5, 'tp_mult': 5.0}
+        return btc, eth
+
+# ── Entry Signal Generation (parameterised) ──────────────────────────────────
+def generate_btc_entries(df: pd.DataFrame, cfg: dict) -> np.ndarray:
     """BTC ATR Expansion: discrete entry signals (+1 long, -1 short, 0 no entry)."""
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
@@ -108,14 +125,18 @@ def generate_btc_entries(df: pd.DataFrame) -> np.ndarray:
     volume = df['volume'].values.astype(float)
     n = len(close)
     
-    atr = _atr_vec(high, low, close, 14)
+    atr_period = cfg.get('atr_period', 14)
+    expansion_mult = cfg.get('expansion_mult', 3.0)
+    vol_mult = cfg.get('vol_mult', 1.5)
+    
+    atr = _atr_vec(high, low, close, atr_period)
     prev_atr = np.roll(atr, 1); prev_atr[0] = atr[0]
     bar_range = high - low
     vol_ma = _rolling_mean(volume, 20)
     vol_ma[:20] = volume[:20].mean()
     
-    expansion = bar_range > 3.0 * prev_atr
-    vol_surge = volume > 1.5 * vol_ma
+    expansion = bar_range > expansion_mult * prev_atr
+    vol_surge = volume > vol_mult * vol_ma
     bar_bull = close > (high + low) / 2
     bar_bear = close < (high + low) / 2
     
@@ -125,33 +146,61 @@ def generate_btc_entries(df: pd.DataFrame) -> np.ndarray:
     entries[:WARMUP] = 0
     return entries
 
-def generate_eth_entries(df: pd.DataFrame) -> np.ndarray:
-    """ETH Donchian Momentum: discrete entry signals."""
+def generate_eth_entries(df: pd.DataFrame, cfg: dict) -> np.ndarray:
+    """ETH Donchian Momentum: discrete entry signals — reads ALL params from cfg."""
     close = df['close'].values.astype(float)
     high = df['high'].values.astype(float)
     low = df['low'].values.astype(float)
     volume = df['volume'].values.astype(float)
     n = len(close)
     
-    dp = 25
+    dp = cfg.get('donchian_period', 25)
+    adx_min = cfg.get('adx_min', 18)
+    adx_trend = cfg.get('adx_trend', 22)
+    vol_mult = cfg.get('vol_mult', 2.0)
+    hurst_min = cfg.get('hurst_min', 0.48)
+    vol_atr_max = cfg.get('vol_atr_max', None)  # None = disabled
+    atr_donchian_factor = cfg.get('atr_donchian_factor', None)  # None = no adaptive
+    
     atr = _atr_vec(high, low, close, 14)
     adx, _, _ = _adx_vec(high, low, close, 14)
     hurst = _hurst_fast_vec(close, 96)
     vol_ma = _rolling_mean(volume, 20)
     vol_ma[:20] = volume[:20].mean()
     
-    # Donchian channels from previous dp bars
+    # Donchian channels — optionally adaptive
     dc_upper = np.full(n, np.nan)
     dc_lower = np.full(n, np.nan)
-    for i in range(dp + 1, n):
-        dc_upper[i] = high[i-dp-1:i-1].max()
-        dc_lower[i] = low[i-dp-1:i-1].min()
     
-    trending = (adx >= 22) & (hurst >= 0.48)
-    adx_ok = adx >= 18
-    vol_ok = volume >= 2.0 * vol_ma
-    atr_pct = atr / np.maximum(close, 1)
-    low_vol = atr_pct <= 0.05
+    if atr_donchian_factor is not None:
+        # Adaptive Donchian period based on ATR ratio
+        long_atr_ma = _rolling_mean(atr, dp * 2)
+        for i in range(dp + 1, n):
+            lt_avg = long_atr_ma[i] if not np.isnan(long_atr_ma[i]) else atr[i]
+            if lt_avg > 0:
+                vol_ratio = atr[i] / lt_avg
+                adp = int(np.clip(dp / (vol_ratio ** atr_donchian_factor), 15, 45))
+            else:
+                adp = dp
+            start = max(0, i - adp - 1)
+            dc_upper[i] = high[start:i-1].max() if i > adp else np.nan
+            dc_lower[i] = low[start:i-1].min() if i > adp else np.nan
+    else:
+        # Fixed Donchian period
+        for i in range(dp + 1, n):
+            dc_upper[i] = high[i-dp-1:i-1].max()
+            dc_lower[i] = low[i-dp-1:i-1].min()
+    
+    trending = (adx >= adx_trend) & (hurst >= hurst_min)
+    adx_ok = adx >= adx_min
+    vol_ok = volume >= vol_mult * vol_ma
+    
+    # Optional ATR volatility filter
+    if vol_atr_max is not None:
+        atr_pct = atr / np.maximum(close, 1)
+        low_vol = atr_pct <= vol_atr_max
+    else:
+        low_vol = np.ones(n, dtype=bool)
     
     long_sig = (close > dc_upper) & adx_ok & vol_ok & low_vol & trending
     short_sig = (close < dc_lower) & adx_ok & vol_ok & low_vol & trending
@@ -185,7 +234,6 @@ def simulate_positions(entries, close, high, low, atr, stop_mult, tp_mult, max_h
             exit_price = None
             exit_bar = None
             for j in range(i + 1, min(i + max_hold + 1, n)):
-                # Check stop (using low for long, high for short)
                 if direction == 1:
                     if low[j] <= stop_price:
                         exit_price = stop_price
@@ -206,18 +254,15 @@ def simulate_positions(entries, close, high, low, atr, stop_mult, tp_mult, max_h
                         break
             
             if exit_price is None:
-                # Max hold exit at close
                 exit_bar = min(i + max_hold, n - 1)
                 exit_price = close[exit_bar]
             
-            # Calculate trade P&L
             trade_pnl = direction * (exit_price - entry_price) / entry_price
             trade_pnl -= 2 * FEE  # entry + exit fees
             
             pnl_bars[exit_bar] += trade_pnl
             trades.append(trade_pnl)
             
-            # Skip to after exit (no overlapping trades)
             i = exit_bar + 1
         else:
             i += 1
@@ -229,7 +274,6 @@ def compute_metrics(pnl_bars, trades, capital):
     equity = capital * np.cumprod(1 + pnl_bars)
     total_return = (equity[-1] / capital - 1) * 100
     
-    # Sharpe from per-bar returns
     if np.std(pnl_bars) > 0:
         sharpe = np.mean(pnl_bars) / np.std(pnl_bars) * np.sqrt(8760)
     else:
@@ -259,7 +303,10 @@ def compute_metrics(pnl_bars, trades, capital):
 def main():
     t0 = time.time()
     
-    # Verify PerAssetRouter loads
+    # Import params from per_asset_router (what autoresearch modifies)
+    btc_cfg, eth_cfg = get_strategy_params()
+    
+    # Verify PerAssetRouter interface loads
     try:
         from tradingagents.research.per_asset_router import PerAssetRouter
         router = PerAssetRouter()
@@ -281,15 +328,24 @@ def main():
         return
     
     try:
-        # Generate entry signals
-        btc_entries = generate_btc_entries(btc_df)
-        eth_entries = generate_eth_entries(eth_df)
+        # Generate entry signals using IMPORTED parameters
+        btc_entries = generate_btc_entries(btc_df, btc_cfg)
+        eth_entries = generate_eth_entries(eth_df, eth_cfg)
+        
+        # Position management params from configs
+        btc_stop = btc_cfg.get('stop_mult', 2.0)
+        btc_tp = btc_cfg.get('tp_mult', 4.0)
+        btc_max_hold = btc_cfg.get('max_hold_bars', 12)
+        
+        eth_stop = eth_cfg.get('stop_mult', 2.5)
+        eth_tp = eth_cfg.get('tp_mult', 5.0)
+        eth_max_hold = eth_cfg.get('max_hold_bars', 48)
         
         # Simulate with position management
         btc_close = btc_df['close'].values.astype(float)
         btc_high = btc_df['high'].values.astype(float)
         btc_low = btc_df['low'].values.astype(float)
-        btc_atr = _atr_vec(btc_high, btc_low, btc_close, 14)
+        btc_atr = _atr_vec(btc_high, btc_low, btc_close, btc_cfg.get('atr_period', 14))
         
         eth_close = eth_df['close'].values.astype(float)
         eth_high = eth_df['high'].values.astype(float)
@@ -298,11 +354,11 @@ def main():
         
         btc_pnl, btc_trades = simulate_positions(
             btc_entries, btc_close, btc_high, btc_low, btc_atr,
-            BTC_STOP_MULT, BTC_TP_MULT, BTC_MAX_HOLD)
+            btc_stop, btc_tp, btc_max_hold)
         
         eth_pnl, eth_trades = simulate_positions(
             eth_entries, eth_close, eth_high, eth_low, eth_atr,
-            ETH_STOP_MULT, ETH_TP_MULT, ETH_MAX_HOLD)
+            eth_stop, eth_tp, eth_max_hold)
         
         btc_results = compute_metrics(btc_pnl, btc_trades, INITIAL_CAPITAL * BTC_WEIGHT)
         eth_results = compute_metrics(eth_pnl, eth_trades, INITIAL_CAPITAL * ETH_WEIGHT)
@@ -338,6 +394,11 @@ def main():
     print("=" * 60)
     print("PER-ASSET OOS EVALUATION (2022-2026, 35k bars, 0.1% fees)")
     print(f"Eval time: {elapsed:.1f}s | Position mgmt: SL/TP/MaxHold")
+    print(f"Params: BTC(exp={btc_cfg.get('expansion_mult')}, vol={btc_cfg.get('vol_mult')}, "
+          f"SL={btc_stop}, TP={btc_tp}, hold={btc_max_hold})")
+    print(f"        ETH(dp={eth_cfg.get('donchian_period')}, adx_t={eth_cfg.get('adx_trend')}, "
+          f"hurst={eth_cfg.get('hurst_min')}, vol={eth_cfg.get('vol_mult')}, "
+          f"SL={eth_stop}, TP={eth_tp}, hold={eth_max_hold})")
     print("=" * 60)
     print(f"\n{'Asset':<10} {'Sharpe':>8} {'Return':>10} {'MaxDD':>8} {'WinRate':>8} {'Trades':>8} {'PF':>6}")
     print("-" * 60)
