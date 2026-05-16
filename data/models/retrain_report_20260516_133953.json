@@ -1,0 +1,59 @@
+{
+  "version": "20260516_133953",
+  "trained_at": "2026-05-16T13:39:53.296937",
+  "symbols": [
+    "BTC",
+    "ETH",
+    "SOL",
+    "AVAX",
+    "LINK",
+    "XRP",
+    "BNB",
+    "DOGE"
+  ],
+  "n_samples": 33664,
+  "n_features": 7,
+  "feature_names": [
+    "hurst",
+    "adx",
+    "rsi",
+    "vol_ratio",
+    "volume_trend",
+    "momentum",
+    "atr_percentile"
+  ],
+  "feature_importance": {
+    "hurst": 3575,
+    "adx": 4009,
+    "rsi": 2586,
+    "vol_ratio": 1483,
+    "volume_trend": 2067,
+    "momentum": 2575,
+    "atr_percentile": 1596
+  },
+  "mean_accuracy": 0.9981818181818183,
+  "fold_scores": [
+    0.9982174688057041,
+    0.9973262032085561,
+    0.9992869875222816,
+    0.9983957219251337,
+    0.9976827094474153
+  ],
+  "regime_distribution": {
+    "TRANSITION": 25080,
+    "TRENDING": 7578,
+    "RANGING": 1006
+  },
+  "threshold": 0.8,
+  "promoted": true,
+  "drift": {
+    "accuracy_delta": 0.08188181818181828,
+    "regime_shift": {
+      "TRENDING": 0.2251,
+      "RANGING": 0.0299,
+      "TRANSITION": 0.745
+    },
+    "importance_drift": {},
+    "drift_detected": true
+  }
+}
