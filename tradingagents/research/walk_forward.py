@@ -444,7 +444,7 @@ class WalkForwardEngine:
         }
 
     def _aggregate_metrics(self, folds: List[WalkForwardFold]) -> Dict:
-        """Aggregate metrics across all folds."""
+        """Aggregate metrics across all folds, including Walk-Forward Efficiency."""
         all_signals = [s for fold in folds for s in fold.signals]
         closed = [s for s in all_signals if s.status == SignalStatus.CLOSED and s.actual_return is not None]
 
@@ -457,7 +457,12 @@ class WalkForwardEngine:
         rolling_max = cum_returns.cummax()
         drawdowns = (cum_returns - rolling_max) / rolling_max
 
-        return {
+        # Compute Walk-Forward Efficiency (WFE)
+        # WFE = OOS_return / IS_return — measures how well in-sample
+        # performance translates to out-of-sample
+        wfe = self._compute_wfe(folds)
+
+        metrics = {
             "total_signals": len(all_signals),
             "closed": len(closed),
             "folds": len(folds),
@@ -470,7 +475,61 @@ class WalkForwardEngine:
             "total_return": round(cum_returns.iloc[-1] - 1, 4),
             "hit_target_rate": round(sum(1 for s in closed if s.hit_target) / len(closed), 3),
             "hit_stop_rate": round(sum(1 for s in closed if s.hit_stop) / len(closed), 3),
+            # Walk-Forward Efficiency
+            "wfe": wfe,
+            "wfe_passes_gate": wfe >= 0.50,  # Go/no-go: WFE > 50%
         }
+
+        if not metrics["wfe_passes_gate"]:
+            logger.warning(
+                f"WFE GATE FAIL: WFE={wfe:.2%} (threshold=50%). "
+                f"Strategy may be overfit — do NOT deploy to live."
+            )
+
+        return metrics
+
+    def _compute_wfe(self, folds: List[WalkForwardFold]) -> float:
+        """
+        Compute Walk-Forward Efficiency (WFE).
+
+        WFE = mean(OOS_sharpe_per_fold) / mean(IS_sharpe_per_fold)
+
+        Interpretation:
+          - WFE > 0.50: Strategy generalises well (deploy)
+          - WFE 0.30-0.50: Marginal (investigate overfitting)
+          - WFE < 0.30: Likely overfit (do not deploy)
+
+        Since we don't have explicit IS metrics per fold, we approximate:
+          IS performance ≈ fold's signal conviction (optimised in-sample)
+          OOS performance ≈ fold's actual returns (out-of-sample)
+        """
+        fold_wfes = []
+
+        for fold in folds:
+            closed = [s for s in fold.signals
+                      if s.status == SignalStatus.CLOSED and s.actual_return is not None]
+            if len(closed) < 2:
+                continue
+
+            # IS proxy: mean conviction (how confident the model was)
+            is_proxy = np.mean([s.conviction for s in closed])
+
+            # OOS actual: Sharpe of realised returns
+            oos_returns = np.array([s.actual_return for s in closed])
+            oos_sharpe = (oos_returns.mean() / oos_returns.std()
+                         if oos_returns.std() > 0 else 0.0)
+
+            # IS Sharpe proxy from conviction (assume conviction ≈ expected Sharpe/2)
+            is_sharpe_proxy = is_proxy * 2.0  # Scale conviction to Sharpe-like units
+
+            if is_sharpe_proxy > 0:
+                fold_wfe = oos_sharpe / is_sharpe_proxy
+                fold_wfes.append(float(np.clip(fold_wfe, -1.0, 2.0)))
+
+        if not fold_wfes:
+            return 0.0
+
+        return round(float(np.mean(fold_wfes)), 4)
 
     def _fetch_ohlcv(self, ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
         """Fetch OHLCV data from the data lake or yfinance."""
