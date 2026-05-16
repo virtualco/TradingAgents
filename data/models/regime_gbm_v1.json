@@ -1,0 +1,31 @@
+{
+  "version": "regime_gbm_v1",
+  "accuracy": 0.9163,
+  "symbols_trained": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "SOLUSDT",
+    "AVAXUSDT",
+    "BNBUSDT",
+    "XRPUSDT",
+    "LINKUSDT",
+    "DOGEUSDT"
+  ],
+  "total_samples": 279712,
+  "feature_count": 8,
+  "feature_names": [
+    "hurst",
+    "adx",
+    "rsi",
+    "vol_ratio",
+    "vol_trend",
+    "momentum",
+    "atr_pct",
+    "di_balance"
+  ],
+  "classes": [
+    "TRENDING",
+    "RANGING",
+    "TRANSITION"
+  ]
+}
