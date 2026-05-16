@@ -22,6 +22,11 @@ import numpy as np
 import pandas as pd
 from typing import Optional
 
+from tradingagents.research.volume_profile_mr import (
+    volume_profile_mr_signal,
+    VPMR_DEFAULT_CONFIG,
+)
+
 
 # ── Technical Indicators ──────────────────────────────────────────────────────
 
@@ -299,6 +304,32 @@ USDJPY_CONFIG = {
     'timeframe':         '1d',
 }
 
+# ── Volume-Profile MR Configs (v6.0) ─────────────────────────────────────────────
+DOGE_VPMR_CONFIG = {
+    'strategy': 'VOLUME_PROFILE_MR',
+    'vwap_lookback': 48,
+    'deviation_mult': 1.6,
+    'poc_bins': 25,
+    'vol_imbalance_min': 1.2,
+    'max_hold_bars': 14,
+    'order_type': 'Limit',
+    'stop_mult': 2.3,
+    'tp_mult': 2.5,
+}
+
+GLD_VPMR_CONFIG = {
+    'strategy': 'VOLUME_PROFILE_MR',
+    'vwap_lookback': 60,
+    'deviation_mult': 1.4,
+    'poc_bins': 30,
+    'vol_imbalance_min': 1.1,
+    'max_hold_bars': 10,
+    'order_type': 'Limit',
+    'stop_mult': 1.8,
+    'tp_mult': 2.5,
+    'timeframe': '1d',
+}
+
 # ── Master Config Map ────────────────────────────────────────────────────────────────
 ASSET_CONFIG = {
     # Crypto (hourly)
@@ -306,14 +337,14 @@ ASSET_CONFIG = {
     'ETHUSDT':  ETH_CONFIG,
     'SOLUSDT':  SOL_CONFIG,
     'AVAXUSDT': AVAX_CONFIG,
-    'DOGEUSDT': DOGE_CONFIG,
+    'DOGEUSDT': DOGE_VPMR_CONFIG,   # v6.0: switched to Volume-Profile MR (better in ranging DOGE markets)
     'BNBUSDT':  BNB_CONFIG,
     'XRPUSDT':  XRP_CONFIG,
     'LINKUSDT': LINK_CONFIG,
     # Traditional (daily)
     'SPY':      SPY_CONFIG,
     'QQQ':      QQQ_CONFIG,
-    'GLD':      GLD_CONFIG,
+    'GLD':      GLD_VPMR_CONFIG,    # v6.0: Gold is mean-reverting, ideal for Volume-Profile MR
     # Forex (daily)
     'EURUSD':   EURUSD_CONFIG,
     'GBPUSD':   GBPUSD_CONFIG,
@@ -516,6 +547,8 @@ class PerAssetRouter:
             return _atr_expansion_signal(df, cfg, sym)
         elif strategy == 'DONCHIAN_MOMENTUM':
             return _donchian_momentum_signal(df, cfg, sym)
+        elif strategy == 'VOLUME_PROFILE_MR':
+            return volume_profile_mr_signal(df, cfg, sym)
         else:
             raise ValueError(f'Unknown strategy: {strategy}')
 
