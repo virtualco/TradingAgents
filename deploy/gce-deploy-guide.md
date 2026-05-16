@@ -54,9 +54,9 @@ gcloud compute instances create trading-agents \
   --metadata-from-file startup-script=deploy/gce-startup.sh
 ```
 
-**Alternative (manual setup):**
+**Alternative (manual setup — recommended):**
 ```bash
-# Create without startup script
+# Create instance without startup script
 gcloud compute instances create trading-agents \
   --zone=us-central1-a \
   --machine-type=e2-small \
@@ -83,10 +83,15 @@ gcloud compute firewall-rules create allow-trading-metrics \
 # SSH into the instance
 gcloud compute ssh trading-agents --zone=us-central1-a
 
-# If you used the startup script, skip to Step 4
-# Otherwise, run manual setup:
+# Clone the repository
+sudo git clone https://github.com/virtualco/TradingAgents.git /opt/trading-agents
+sudo chown -R ubuntu:ubuntu /opt/trading-agents
+
+# Run the setup script (installs deps, configures firewall, installs systemd services)
 sudo bash /opt/trading-agents/deploy/gce-startup.sh
 ```
+
+Note: The setup script installs services but does **NOT** start them. You must configure `.env` first (Step 4).
 
 ## Step 4: Configure Environment Variables
 
