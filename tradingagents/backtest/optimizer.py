@@ -132,6 +132,8 @@ class PortfolioOptimizer:
             weights, converged = self._risk_parity(cov.values, n)
         elif self.config.method == "conviction":
             weights, converged = self._conviction_weighted(tickers, conviction_scores or {}, n)
+        elif self.config.method in ("HRP", "CVaR", "MeanCVaR"):
+            weights, converged = self._riskfolio_dispatch(returns, tickers, n)
         else:
             weights = np.ones(n) / n
             converged = True
@@ -307,3 +309,39 @@ class PortfolioOptimizer:
             method=self.config.method,
             converged=False,
         )
+
+    def _riskfolio_dispatch(
+        self, returns: pd.DataFrame, tickers: List[str], n: int
+    ) -> Tuple[np.ndarray, bool]:
+        """Dispatch to Riskfolio-Lib for HRP/CVaR/MeanCVaR optimisation."""
+        try:
+            from tradingagents.research.portfolio_riskfolio import (
+                RiskfolioConfig,
+                RiskfolioOptimiser,
+            )
+
+            rf_config = RiskfolioConfig(
+                method=self.config.method,
+                max_weight=self.config.max_weight,
+                min_weight=self.config.min_weight,
+                lookback_days=self.config.lookback_days,
+                risk_free_rate=self.config.risk_free_rate,
+            )
+            opt = RiskfolioOptimiser(config=rf_config)
+            result = opt.optimise(returns)
+
+            weights = np.array([result.weights.get(t, 0.0) for t in tickers])
+            # Ensure sum to 1
+            total = weights.sum()
+            if total > 0:
+                weights = weights / total
+            else:
+                weights = np.ones(n) / n
+            return weights, True
+
+        except ImportError:
+            logger.warning("riskfolio-lib not available, falling back to equal weights")
+            return np.ones(n) / n, False
+        except Exception as e:
+            logger.warning(f"Riskfolio optimisation failed: {e}, falling back to equal weights")
+            return np.ones(n) / n, False
