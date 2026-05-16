@@ -250,6 +250,55 @@ GLD_CONFIG = {
     'timeframe':         '1d',
 }
 
+# ── Forex Pairs (daily) ──────────────────────────────────────────────────────
+EURUSD_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   40,
+    'adx_min':           15,
+    'adx_trend':         27,
+    'vol_mult':          1.3,
+    'hurst_min':         0.50,
+    'vol_atr_max':       0.1,
+    'max_hold_bars':     30,
+    'order_type':        'Market',
+    'stop_mult':         3.2,
+    'tp_mult':           8.0,
+    'atr_donchian_factor': 0.5,
+    'timeframe':         '1d',
+}
+
+GBPUSD_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   21,
+    'adx_min':           28,
+    'adx_trend':         27,
+    'vol_mult':          3.8,
+    'hurst_min':         0.37,
+    'vol_atr_max':       None,
+    'max_hold_bars':     42,
+    'order_type':        'Market',
+    'stop_mult':         2.6,
+    'tp_mult':           7.0,
+    'atr_donchian_factor': 1.0,
+    'timeframe':         '1d',
+}
+
+USDJPY_CONFIG = {
+    'strategy':          'DONCHIAN_MOMENTUM',
+    'donchian_period':   15,
+    'adx_min':           30,
+    'adx_trend':         31,
+    'vol_mult':          4.0,
+    'hurst_min':         0.47,
+    'vol_atr_max':       None,
+    'max_hold_bars':     60,
+    'order_type':        'Market',
+    'stop_mult':         3.7,
+    'tp_mult':           10.5,
+    'atr_donchian_factor': 2.0,
+    'timeframe':         '1d',
+}
+
 # ── Master Config Map ────────────────────────────────────────────────────────────────
 ASSET_CONFIG = {
     # Crypto (hourly)
@@ -265,6 +314,10 @@ ASSET_CONFIG = {
     'SPY':      SPY_CONFIG,
     'QQQ':      QQQ_CONFIG,
     'GLD':      GLD_CONFIG,
+    # Forex (daily)
+    'EURUSD':   EURUSD_CONFIG,
+    'GBPUSD':   GBPUSD_CONFIG,
+    'USDJPY':   USDJPY_CONFIG,
 }
 
 # Data file mapping (symbol → parquet filename prefix + timeframe)
@@ -280,6 +333,9 @@ DATA_FILE_MAP = {
     'SPY':      ('SPY', '1d'),
     'QQQ':      ('QQQ', '1d'),
     'GLD':      ('GLD', '1d'),
+    'EURUSD':   ('EURUSD', '1d'),
+    'GBPUSD':   ('GBPUSD', '1d'),
+    'USDJPY':   ('USDJPY', '1d'),
 }
 # ── Signal Generators ─────────────────────────────────────────────────────────
 

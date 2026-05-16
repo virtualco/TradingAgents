@@ -1,82 +1,86 @@
 [
   {
-    "symbol": "SPY",
+    "symbol": "EURUSD",
     "strategy": "DONCHIAN_MOMENTUM",
     "params": {
-      "donchian_period": 18,
+      "donchian_period": 40,
+      "adx_min": 15,
+      "adx_trend": 27,
+      "vol_mult": 1.3,
+      "hurst_min": 0.5,
+      "vol_atr_max": 0.1,
+      "max_hold_bars": 30,
+      "stop_mult": 3.2,
+      "tp_mult": 8.0,
+      "atr_donchian_factor": 0.5,
+      "strategy": "DONCHIAN_MOMENTUM",
+      "order_type": "Market"
+    },
+    "metrics": {
+      "sharpe": 0.6417940786480953,
+      "total_return": 9.346499675896226,
+      "max_dd": 2.798031009187617,
+      "n_trades": 9,
+      "win_rate": 77.77777777777779,
+      "pf": 3.6761317781226746
+    },
+    "n_trials": 300,
+    "time_s": 26.933948040008545
+  },
+  {
+    "symbol": "GBPUSD",
+    "strategy": "DONCHIAN_MOMENTUM",
+    "params": {
+      "donchian_period": 21,
       "adx_min": 28,
-      "adx_trend": 20,
-      "vol_mult": 1.2,
-      "hurst_min": 0.36,
-      "vol_atr_max": 0.04,
-      "max_hold_bars": 72,
-      "stop_mult": 4.0,
-      "tp_mult": 8.5,
+      "adx_trend": 27,
+      "vol_mult": 3.8000000000000003,
+      "hurst_min": 0.37,
+      "vol_atr_max": null,
+      "max_hold_bars": 42,
+      "stop_mult": 2.6,
+      "tp_mult": 7.0,
+      "atr_donchian_factor": 1.0,
+      "strategy": "DONCHIAN_MOMENTUM",
+      "order_type": "Market"
+    },
+    "metrics": {
+      "sharpe": 0.6891334946614397,
+      "total_return": 18.36806873143122,
+      "max_dd": 4.646583065435108,
+      "n_trades": 23,
+      "win_rate": 56.52173913043478,
+      "pf": 2.374639362623599
+    },
+    "n_trials": 300,
+    "time_s": 26.37356925010681
+  },
+  {
+    "symbol": "USDJPY",
+    "strategy": "DONCHIAN_MOMENTUM",
+    "params": {
+      "donchian_period": 15,
+      "adx_min": 30,
+      "adx_trend": 31,
+      "vol_mult": 4.0,
+      "hurst_min": 0.47,
+      "vol_atr_max": null,
+      "max_hold_bars": 60,
+      "stop_mult": 3.7,
+      "tp_mult": 10.5,
       "atr_donchian_factor": 2.0,
       "strategy": "DONCHIAN_MOMENTUM",
       "order_type": "Market"
     },
     "metrics": {
-      "sharpe": 1.1394889320563588,
-      "total_return": 41.105532519047514,
-      "max_dd": 2.5614698545336627,
-      "n_trades": 10,
-      "win_rate": 80.0,
-      "pf": 12.779523499310343
+      "sharpe": 1.1906271002331414,
+      "total_return": 46.6735736279803,
+      "max_dd": 1.2850018099027989,
+      "n_trades": 11,
+      "win_rate": 90.9090909090909,
+      "pf": 38.314758529627674
     },
     "n_trials": 300,
-    "time_s": 23.000503301620483
-  },
-  {
-    "symbol": "QQQ",
-    "strategy": "ATR_EXPANSION",
-    "params": {
-      "atr_period": 21,
-      "expansion_mult": 1.5,
-      "vol_mult": 1.5,
-      "max_hold_bars": 26,
-      "stop_mult": 2.2,
-      "tp_mult": 3.0,
-      "strategy": "ATR_EXPANSION",
-      "order_type": "Market"
-    },
-    "metrics": {
-      "sharpe": 1.4980838708814317,
-      "total_return": 116.91750603601409,
-      "max_dd": 8.354985692528622,
-      "n_trades": 19,
-      "win_rate": 78.94736842105263,
-      "pf": 7.9048459389993
-    },
-    "n_trials": 300,
-    "time_s": 6.391256809234619
-  },
-  {
-    "symbol": "GLD",
-    "strategy": "DONCHIAN_MOMENTUM",
-    "params": {
-      "donchian_period": 16,
-      "adx_min": 22,
-      "adx_trend": 18,
-      "vol_mult": 1.1,
-      "hurst_min": 0.38999999999999996,
-      "vol_atr_max": 0.04,
-      "max_hold_bars": 48,
-      "stop_mult": 4.0,
-      "tp_mult": 2.5,
-      "atr_donchian_factor": 1.5,
-      "strategy": "DONCHIAN_MOMENTUM",
-      "order_type": "Market"
-    },
-    "metrics": {
-      "sharpe": 1.7910544454107873,
-      "total_return": 89.68898312744639,
-      "max_dd": 6.595135656201953,
-      "n_trades": 38,
-      "win_rate": 84.21052631578947,
-      "pf": 4.571752219144651
-    },
-    "n_trials": 300,
-    "time_s": 22.986870288848877
+    "time_s": 25.294859170913696
   }
 ]
