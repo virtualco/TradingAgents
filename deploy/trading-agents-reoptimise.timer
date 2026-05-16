@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly Bayesian Re-optimisation for TradingAgents
+
+[Timer]
+OnCalendar=*-*-01 02:00:00 UTC
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

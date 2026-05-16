@@ -1,0 +1,18 @@
+[Unit]
+Description=TradingAgents Monthly Bayesian Re-optimisation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/TradingAgents
+EnvironmentFile=/home/ubuntu/TradingAgents/deploy/.env
+ExecStart=/usr/bin/python3 -u scripts/autoresearch_v2.py --mode bayesian --trials 500 --post-results %E{DASHBOARD_URL}/api/scheduled/reoptimise
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-agents-reopt
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

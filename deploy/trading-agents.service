@@ -1,0 +1,23 @@
+[Unit]
+Description=TradingAgents Live Trader v2 — Multi-Asset Crypto Trading
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/TradingAgents
+EnvironmentFile=/home/ubuntu/TradingAgents/deploy/.env
+ExecStart=/usr/bin/python3 -u scripts/live_trader_v2.py --symbols %E{SYMBOLS} --max-position %E{MAX_POSITION_USD}
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=trading-agents
+
+# Resource limits
+MemoryMax=1G
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
